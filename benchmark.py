@@ -51,11 +51,21 @@ async def run_benchmark():
                 })
             continue
 
+        snap_ts = snaps[0]["timestamp"]
+        ts_year = int(snap_ts[:4]) if len(snap_ts) >= 4 else 2005
+        if ts_year < 2005:
+            era = "pre-2005"
+        elif ts_year <= 2012:
+            era = "2005-2012"
+        else:
+            era = "post-2012"
+
         archive_link = build_archive_url(snaps[0]["timestamp"], snaps[0]["original"])
-        logger.info(f"Testing {url} -> {archive_link}")
+        logger.info(f"Testing {url} -> {archive_link} (Era: {era})")
 
         for path_name, fn in [("http", "async"), ("browserbase", "sync")]:
             t0 = time.time()
+            fields_filled = 0
             try:
                 if path_name == "http":
                     res = await exhume_without_browser(archive_link)
@@ -67,6 +77,7 @@ async def run_benchmark():
                 ok   = usable(text)
                 chars = len(text)
                 err  = res.get("error") or ""
+                fields_filled = res.get("fields_filled", 0)
             except Exception as e:
                 ok, chars, err = False, 0, type(e).__name__
 
@@ -74,14 +85,15 @@ async def run_benchmark():
             row = {
                 "url": url, "site_type": site_type, "path": path_name,
                 "usable": ok, "chars": chars, "secs": elapsed, "error": err,
+                "fields_filled": fields_filled, "era": era,
             }
             rows.append(row)
-            logger.info(f"  [{path_name}] usable={ok} chars={chars} secs={elapsed} err={err}")
+            logger.info(f"  [{path_name}] usable={ok} chars={chars} fields={fields_filled} secs={elapsed} err={err}")
 
     # Write CSV
     if rows:
         with open(OUT_CSV, "w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=["url","site_type","path","usable","chars","secs","error"])
+            w = csv.DictWriter(f, fieldnames=["url","site_type","path","usable","chars","secs","fields_filled","era","error"])
             w.writeheader()
             w.writerows(rows)
         logger.info(f"Wrote {OUT_CSV}")
@@ -92,7 +104,8 @@ async def run_benchmark():
             db.add(BenchmarkResult(
                 url=row["url"], site_type=row["site_type"], path=row["path"],
                 usable=bool(row["usable"]), chars=int(row["chars"]),
-                secs=float(row["secs"]), error=row["error"] or None,
+                secs=float(row["secs"]), fields_filled=int(row.get("fields_filled", 0)),
+                era=row.get("era", "2005-2012"), error=row["error"] or None,
             ))
         await db.commit()
     logger.info("Saved to DB")

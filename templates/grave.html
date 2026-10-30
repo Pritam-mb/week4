@@ -8,7 +8,7 @@
 
   <!-- Hero -->
   <div class="grave-hero container">
-    <p class="grave-rip">&#x271D; &nbsp; R . I . P . &nbsp; &#x271D;</p>
+    <p class="grave-rip">R . I . P .</p>
     <h1 class="grave-name">{{ grave.name }}</h1>
     <p class="grave-dates">
       {% if grave.first_archived %}First archived: <strong>{{ grave.first_archived }}</strong>{% endif %}
@@ -61,14 +61,16 @@
       {% set items = lifeline.items() | sort %}
       {% set max_val = lifeline.values() | max %}
       {% set min_val = lifeline.values() | min %}
+      {% set total_items = items | length %}
+      {% set step_x = (640 / (total_items - 1)) if total_items > 1 else 320 %}
       <svg class="lifeline-sparkline" viewBox="0 0 700 140" role="img" aria-label="Archive lifeline sparkline">
         <polyline points="
           {% for year, count in items %}
-            {{ loop.index0 * 140 }},{{ 120 - ((count - min_val) / (max_val - min_val + 1) * 100) if max_val > min_val else 60 }}
+            {{ (30 + loop.index0 * step_x) | round(1) }},{{ (120 - ((count - min_val) / (max_val - min_val + 1) * 100)) | round(1) if max_val > min_val else 60 }}
           {% endfor %}
         " fill="none" stroke="var(--marigold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         {% for year, count in items %}
-        <circle cx="{{ loop.index0 * 140 }}" cy="{{ 120 - ((count - min_val) / (max_val - min_val + 1) * 100) if max_val > min_val else 60 }}" r="3" fill="var(--marigold)"/>
+        <circle cx="{{ (30 + loop.index0 * step_x) | round(1) }}" cy="{{ (120 - ((count - min_val) / (max_val - min_val + 1) * 100)) | round(1) if max_val > min_val else 60 }}" r="3" fill="var(--marigold)"/>
         {% endfor %}
       </svg>
       <div class="lifeline-axes" style="font-family:var(--font-mono); font-size:0.7rem; color:var(--ash); display:flex; justify-content:space-between; margin-top:0.4rem;">
@@ -89,6 +91,9 @@
       <h3>Eulogy</h3>
       <p class="grave-eulogy">
         {{ grave.eulogy_verified or grave.eulogy or "Little is left of it -- the archive holds only silence." }}
+      </p>
+      <p class="eulogy-credit" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--ash); margin-top:0.75rem;">
+        Eulogy written by {{ grave.llm_model or 'Gemma' }}
       </p>
       {% if grave.unsupported_before is not none and grave.unsupported_before > 0 %}
       <div class="factcheck-badge">
@@ -211,8 +216,7 @@
         <div class="claim-item {{ "claim-ok" if c.supported else "claim-bad" }}">
           <span class="claim-status">{{ "OK" if c.supported else "FAIL" }}</span>
           <div>
-            <div class="claim-text">{{ c.claim }} {% if c.evidence_id %}[{{ c.evidenc
-e_id }}]{% endif %}</div>
+            <div class="claim-text">{{ c.claim }} {% if c.evidence_id %}[{{ c.evidence_id }}]{% endif %}</div>
             {% if c.quote %}
             <div class="claim-quote">Source: "{{ c.quote }}"</div>
             {% endif %}
@@ -228,9 +232,9 @@ e_id }}]{% endif %}</div>
   <div class="container" style="margin-bottom:4rem;">
     <div class="grave-panel">
       <h3>Visitor Memories</h3>
-      <p class="panel-sub">Leave a memory of {{ grave.name }} (140 chars, rate-limited).</p>
+      <p class="panel-sub">Leave a memory of {{ grave.name }} (500 chars, rate-limited).</p>
       <form id="memory-form" style="display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
-        <input type="text" id="memory-input" maxlength="140" placeholder="I remember when..."
+        <input type="text" id="memory-input" maxlength="500" placeholder="I remember when..."
                class="form-input" style="flex:1;min-width:200px;">
         <button type="submit" class="bury-btn" style="width:auto;padding:0.75rem 1.5rem;">
           Leave Memory

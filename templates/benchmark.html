@@ -30,6 +30,14 @@
         <span class="bench-stat-val">{{ s.avg_secs }}s</span>
         <span class="bench-stat-label">Avg time</span>
       </div>
+      <div class="bench-stat">
+        <span class="bench-stat-val">{{ s.p50_ms }} / {{ s.p95_ms }}</span>
+        <span class="bench-stat-label">p50 / p95 ms</span>
+      </div>
+      <div class="bench-stat">
+        <span class="bench-stat-val">{{ s.avg_fields }}</span>
+        <span class="bench-stat-label">Avg fields filled</span>
+      </div>
       {% if s.top_errors %}
       <div class="bench-errors">
         {% for err, cnt in s.top_errors %}
@@ -42,10 +50,39 @@
   </div>
   {% else %}
   <div class="empty-benchmark">
-    <p>&#x23F3; No benchmark data yet.</p>
+    <p>No benchmark data yet.</p>
     <p style="font-family:var(--font-ui);font-size:0.9rem;margin-top:0.5rem;">
       Run <code>venv\Scripts\python.exe benchmark.py</code> to populate this table.
     </p>
+  </div>
+  {% endif %}
+
+  <!-- Era Breakdown -->
+  {% if era_breakdown %}
+  <div class="section-divider" style="margin:3rem 0 2rem;">
+    <span class="section-divider-text">Performance by Era</span>
+  </div>
+  <div style="overflow-x:auto; margin-bottom:2rem;">
+    <table class="benchmark-table">
+      <thead>
+        <tr>
+          <th>Era</th>
+          <th>Sites</th>
+          <th>HTTP Usable %</th>
+          <th>Browserbase Usable %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for era_name, ed in era_breakdown.items() %}
+        <tr>
+          <td><span class="badge">{{ era_name }}</span></td>
+          <td>{{ ed.total }}</td>
+          <td>{{ ed.http_pct }}%</td>
+          <td>{{ ed.bb_pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% endif %}
 
@@ -73,7 +110,7 @@
           <td class="url-cell" title="{{ r.url }}">{{ r.url | truncate(40, True) }}</td>
           <td><span class="type-badge type-{{ r.site_type }}">{{ r.site_type }}</span></td>
           <td><span class="path-badge path-{{ r.path }}">{{ r.path }}</span></td>
-          <td>{{ "&#x2705;" if r.usable else "&#x274C;" }}</td>
+          <td><span class="claim-status {{ "claim-ok" if r.usable else "claim-bad" }}" style="display:inline-block;padding:0.1rem 0.4rem;font-size:0.72rem;">{{ "OK" if r.usable else "FAIL" }}</span></td>
           <td>{{ "{:,}".format(r.chars) }}</td>
           <td>{{ r.secs }}s</td>
           <td style="font-size:0.78rem;color:var(--text-dim);">{{ r.error or "" }}</td>

@@ -32,16 +32,18 @@ async def main():
 
         def stats(rr):
             if not rr:
-                return {"n": 0, "usable_pct": 0, "avg_chars": 0, "avg_secs": 0, "p50_ms": 0, "p95_ms": 0}
+                return {"n": 0, "usable_pct": 0, "avg_chars": 0, "avg_fields": 0, "avg_secs": 0, "p50_ms": 0, "p95_ms": 0}
             usable = sum(1 for r in rr if r.usable)
             secs = sorted([r.secs or 0 for r in rr])
             n = len(rr)
             p50 = secs[int(n * 0.5)] if secs else 0
             p95 = secs[int(n * 0.95)] if secs else 0
+            avg_fields = round(sum(getattr(r, "fields_filled", 0) or 0 for r in rr) / n, 1)
             return {
                 "n": n,
                 "usable_pct": round(100 * usable / n, 1),
                 "avg_chars": int(sum(r.chars or 0 for r in rr) / n),
+                "avg_fields": avg_fields,
                 "avg_secs": round(sum(r.secs or 0 for r in rr) / n, 2),
                 "p50_ms": int(p50 * 1000),
                 "p95_ms": int(p95 * 1000),
@@ -50,10 +52,10 @@ async def main():
         http_s = stats(http_rows)
         bb_s = stats(bb_rows)
 
-        print("| Method | N | Usable % | Avg Chars | Avg Secs | p50 ms | p95 ms |")
-        print("|--------|---|----------|-----------|----------|--------|--------|")
-        print(f"| HTTP | {http_s['n']} | {http_s['usable_pct']} | {http_s['avg_chars']} | {http_s['avg_secs']} | {http_s['p50_ms']} | {http_s['p95_ms']} |")
-        print(f"| Browserbase | {bb_s['n']} | {bb_s['usable_pct']} | {bb_s['avg_chars']} | {bb_s['avg_secs']} | {bb_s['p50_ms']} | {bb_s['p95_ms']} |")
+        print("| Method | N | Usable % | Avg Chars | Avg Fields | Avg Secs | p50 ms | p95 ms |")
+        print("|--------|---|----------|-----------|------------|----------|--------|--------|")
+        print(f"| HTTP | {http_s['n']} | {http_s['usable_pct']} | {http_s['avg_chars']} | {http_s['avg_fields']} | {http_s['avg_secs']} | {http_s['p50_ms']} | {http_s['p95_ms']} |")
+        print(f"| Browserbase | {bb_s['n']} | {bb_s['usable_pct']} | {bb_s['avg_chars']} | {bb_s['avg_fields']} | {bb_s['avg_secs']} | {bb_s['p50_ms']} | {bb_s['p95_ms']} |")
         print()
 
     # ── Unsupported claims before→after ──

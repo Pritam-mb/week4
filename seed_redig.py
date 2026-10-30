@@ -46,6 +46,7 @@ async def update_grave_from_result(grave: Grave, result: dict):
     grave.llm_provider = result.get("llm_provider")
     grave.llm_model = result.get("llm_model")
     grave.dig_status = "done"
+    grave.is_seed = True
 
 
 async def main():
@@ -82,8 +83,10 @@ async def main():
                 await db.commit()
                 await db.refresh(grave)
 
-            if not args.force and grave.dig_status == "done":
-                logger.info(f"Skip {slug} already done")
+            # Check if grave was already dug with real pipeline data
+            has_real_data = grave.dig_status == "done" and grave.claims_json is not None and grave.exhume_attempts is not None
+            if not args.force and has_real_data:
+                logger.info(f"Skip {slug} already done with real data")
                 results.append([slug, name, "SKIP", "already done", "-", "-", "-"])
                 continue
 

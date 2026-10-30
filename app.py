@@ -62,9 +62,29 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 async def startup():
     await init_db()
     logger.info("Database initialized")
+    # Resume any incomplete jobs on startup
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(DigJob).where(DigJob.status.in_(["pending", "running"]))
+            )
+            incomplete = result.scalars().all()
+            for job in incomplete:
+                logger.info(f"Resuming dig job {job.id} for {job.url} from stage: {job.stage or 'archaeologist'}")
+                use_bb = bool(os.getenv("BROWSERBASE_API_KEY"))
+                asyncio.create_task(run_dig_job(job.id, job.url, "", use_bb))
+    except Exception as e:
+        logger.warning(f"Failed to check/resume jobs on startup: {e}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def normalize_domain(u: str) -> str:
+    clean = (u or "").strip().lower()
+    clean = re.sub(r"^https?://", "", clean)
+    clean = re.sub(r"^www\.", "", clean)
+    return clean.rstrip("/")
+
 
 def slugify(name: str) -> str:
     import re
@@ -266,17 +286,22 @@ async def bury(
 ):
     url = url.strip()
     name = name.strip()
-    if not url.startswith(("http://", "https://")):
-        raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
     if not is_ssrf_safe(url):
-        raise HTTPException(status_code=400, detail="URL not allowed: only web.archive.org is permitted")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid URL or target. IPs, localhost, non-HTTP schemes, and inputs > 200 chars are rejected."
+        )
 
-    # Already buried?
-    existing = await db.execute(select(Grave).where(Grave.url == url))
-    ex = existing.scalar_one_or_none()
-    if ex:
-        return JSONResponse({"job_id": None, "existing_slug": ex.slug,
-                             "message": "Already in the graveyard."})
+    # Normalize domain and check dedupe
+    norm = normalize_domain(url)
+    res_graves = await db.execute(select(Grave))
+    for g in res_graves.scalars():
+        if normalize_domain(g.url) == norm or (g.slug and g.slug == slugify(name or norm)):
+            return JSONResponse({
+                "job_id": None,
+                "existing_slug": g.slug,
+                "message": "Already in the graveyard.",
+            })
 
     job_id = str(uuid.uuid4())
     job = DigJob(id=job_id, url=url, status="pending", message="Queued...")
@@ -412,21 +437,86 @@ async def benchmark_page(request: Request, db: AsyncSession = Depends(get_db)):
 
     def stats(rr):
         if not rr:
-            return {}
-        usable_pct = 100 * sum(1 for r in rr if r.usable) / len(rr)
-        avg_secs   = sum(r.secs or 0 for r in rr) / len(rr)
-        avg_chars  = sum(r.chars or 0 for r in rr) / len(rr)
-        return {"usable_pct": round(usable_pct, 1), "avg_secs": round(avg_secs, 1),
-                "avg_chars": int(avg_chars), "n": len(rr)}
+            return {
+                "usable_pct": 0, "avg_secs": 0, "avg_chars": 0, "n": 0,
+                "p50_ms": 0, "p95_ms": 0, "avg_fields": 0, "top_errors": [],
+            }
+        usable_cnt = sum(1 for r in rr if r.usable)
+        usable_pct = 100 * usable_cnt / len(rr)
+        secs_list = sorted([r.secs or 0.0 for r in rr])
+        n = len(rr)
+        p50 = secs_list[int(n * 0.5)] if secs_list else 0.0
+        p95 = secs_list[int(n * 0.95)] if secs_list else 0.0
+        avg_secs = sum(secs_list) / n
+        avg_chars = sum(r.chars or 0 for r in rr) / n
+        
+        # Error frequencies
+        errs = [r.error for r in rr if r.error]
+        from collections import Counter
+        top_errs = Counter(errs).most_common(3)
+
+        return {
+            "usable_pct": round(usable_pct, 1),
+            "avg_secs": round(avg_secs, 1),
+            "avg_chars": int(avg_chars),
+            "p50_ms": int(p50 * 1000),
+            "p95_ms": int(p95 * 1000),
+            "avg_fields": round(sum(getattr(r, 'fields_filled', 0) or 0 for r in rr) / n, 1),
+            "n": n,
+            "top_errors": top_errs,
+        }
+
+    http_s = stats(http_rows)
+    bb_s = stats(bb_rows)
+    summary = {}
+    if http_rows or bb_rows:
+        summary["http"] = http_s
+        summary["browserbase"] = bb_s
+
+    # Breakdown by era (pre-2005 / 2005-2012 / post-2012)
+    eras = {"pre-2005": [], "2005-2012": [], "post-2012": []}
+    for r in rows:
+        era = getattr(r, "era", None) or "2005-2012"
+        if era in eras:
+            eras[era].append(r)
+
+    era_breakdown = {}
+    for era_name, e_rows in eras.items():
+        if e_rows:
+            e_http = [r for r in e_rows if r.path == "http"]
+            e_bb = [r for r in e_rows if r.path == "browserbase"]
+            era_breakdown[era_name] = {
+                "http_pct": round(100 * sum(1 for r in e_http if r.usable) / max(len(e_http), 1), 1),
+                "bb_pct": round(100 * sum(1 for r in e_bb if r.usable) / max(len(e_bb), 1), 1),
+                "total": len(e_rows),
+            }
 
     return templates.TemplateResponse("benchmark.html", {
         "request": request,
         "rows": rows,
-        "http_stats": stats(http_rows),
-        "bb_stats": stats(bb_rows),
+        "summary": summary,
+        "http_stats": http_s,
+        "bb_stats": bb_s,
+        "era_breakdown": era_breakdown,
     })
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok", "ts": datetime.utcnow().isoformat()}
+async def health(db: AsyncSession = Depends(get_db)):
+    db_ok = False
+    try:
+        from sqlalchemy import func
+        res = await db.execute(select(func.count(Grave.id)))
+        _ = res.scalar()
+        db_ok = True
+    except Exception as e:
+        logger.error(f"Health check DB error: {e}")
+
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "database": "connected" if db_ok else "error",
+        "llm_provider": LLM_PROVIDER,
+        "browserbase_configured": bool(os.getenv("BROWSERBASE_API_KEY")),
+        "sentry_configured": bool(os.getenv("SENTRY_DSN")),
+        "ts": datetime.utcnow().isoformat(),
+    }

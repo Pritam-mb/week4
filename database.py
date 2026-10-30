@@ -98,6 +98,8 @@ class BenchmarkResult(Base):
     usable: Mapped[bool] = mapped_column(Boolean, default=False)
     chars: Mapped[int] = mapped_column(Integer, default=0)
     secs: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fields_filled: Mapped[int] = mapped_column(Integer, default=0)
+    era: Mapped[str | None] = mapped_column(String(50), nullable=True)
     error: Mapped[str | None] = mapped_column(String(500), nullable=True)
     run_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -121,6 +123,13 @@ async def init_db():
             cols_jobs = {r[1] for r in res_jobs}
             if 'stage' not in cols_jobs:
                 connection.execute(text('ALTER TABLE dig_jobs ADD COLUMN stage VARCHAR(50)'))
+
+            res_bench = connection.execute(text('PRAGMA table_info(benchmark_results)')).fetchall()
+            cols_bench = {r[1] for r in res_bench}
+            if 'fields_filled' not in cols_bench:
+                connection.execute(text('ALTER TABLE benchmark_results ADD COLUMN fields_filled INTEGER DEFAULT 0'))
+            if 'era' not in cols_bench:
+                connection.execute(text('ALTER TABLE benchmark_results ADD COLUMN era VARCHAR(50)'))
 
         await conn.run_sync(_migrate)
 

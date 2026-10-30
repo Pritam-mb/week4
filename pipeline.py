@@ -39,28 +39,23 @@ def traced_chat(stage: str, model: str, messages: list, call):
     _dsn = os.getenv("SENTRY_DSN", "")
     if not _dsn:
         return call()
-    provider = os.getenv("LLM_PROVIDER", "ollama")
-    with _sentry.start_span(
-        op="gen_ai.chat",
-        name=f"chat {model}",
-        attributes={
-            "gen_ai.operation.name": "chat",
-            "gen_ai.provider.name": provider,
-            "gen_ai.request.model": model,
-            "gen_ai.agent.name": "Graveyard",
-            "gen_ai.pipeline.name": "exhumation",
-            "gen_ai.input.messages": json.dumps(
-                [{"role": m.get("role", "user"),
-                  "parts": [{"type": "text", "content": m.get("content", "")}]}
-                 for m in messages]
-            )[:4000],
-        },
-    ) as span:
+    provider = os.getenv("LLM_PROVIDER") or os.getenv("GEMMA_PROVIDER") or "groq"
+    with _sentry.start_span(op="gen_ai.chat", description=f"chat {model}") as span:
         span.set_tag("stage", stage)
+        span.set_data("gen_ai.operation.name", "chat")
+        span.set_data("gen_ai.provider.name", provider)
+        span.set_data("gen_ai.request.model", model)
+        span.set_data("gen_ai.agent.name", "Graveyard")
+        span.set_data("gen_ai.pipeline.name", "exhumation")
+        span.set_data("gen_ai.input.messages", json.dumps(
+            [{"role": m.get("role", "user"),
+              "parts": [{"type": "text", "content": m.get("content", "")}]}
+             for m in messages]
+        )[:4000])
         result = call()
-        # Try to record token usage if result is a Groq response
+        # Try to record token usage if result has model/usage
         try:
-            span.set_data("gen_ai.response.model", result.model)
+            span.set_data("gen_ai.response.model", getattr(result, "model", model))
             span.set_data("gen_ai.usage.input_tokens", result.usage.prompt_tokens)
             span.set_data("gen_ai.usage.output_tokens", result.usage.completion_tokens)
         except Exception:
@@ -70,7 +65,7 @@ def traced_chat(stage: str, model: str, messages: list, call):
 
 def traced_tool(name: str, args: dict, fn):
     """
-    Wrap a tool invocation in a gen_ai.execute_tool span.
+    Wrap a sync tool invocation in a gen_ai.execute_tool span.
     `fn` is a zero-arg callable.
     """
     if not _SENTRY_OK or not _sentry:
@@ -78,16 +73,11 @@ def traced_tool(name: str, args: dict, fn):
     _dsn = os.getenv("SENTRY_DSN", "")
     if not _dsn:
         return fn()
-    with _sentry.start_span(
-        op="gen_ai.execute_tool",
-        name=f"execute_tool {name}",
-        attributes={
-            "gen_ai.operation.name": "execute_tool",
-            "gen_ai.agent.name": "Graveyard",
-            "gen_ai.tool.name": name,
-            "gen_ai.tool.call.arguments": json.dumps(args)[:500],
-        },
-    ) as span:
+    with _sentry.start_span(op="gen_ai.execute_tool", description=f"execute_tool {name}") as span:
+        span.set_data("gen_ai.operation.name", "execute_tool")
+        span.set_data("gen_ai.agent.name", "Graveyard")
+        span.set_data("gen_ai.tool.name", name)
+        span.set_data("gen_ai.tool.call.arguments", json.dumps(args)[:500])
         try:
             out = fn()
             span.set_data("gen_ai.tool.call.result", json.dumps({"ok": True}))
@@ -97,14 +87,36 @@ def traced_tool(name: str, args: dict, fn):
             span.set_data("error.type", type(exc).__name__)
             raise
 
+
+async def traced_tool_async(name: str, args: dict, coro):
+    """Wrap an async tool invocation in a gen_ai.execute_tool span."""
+    if not _SENTRY_OK or not _sentry:
+        return await coro
+    _dsn = os.getenv("SENTRY_DSN", "")
+    if not _dsn:
+        return await coro
+    with _sentry.start_span(op="gen_ai.execute_tool", description=f"execute_tool {name}") as span:
+        span.set_data("gen_ai.operation.name", "execute_tool")
+        span.set_data("gen_ai.agent.name", "Graveyard")
+        span.set_data("gen_ai.tool.name", name)
+        span.set_data("gen_ai.tool.call.arguments", json.dumps(args)[:500])
+        try:
+            out = await coro
+            span.set_data("gen_ai.tool.call.result", json.dumps({"ok": True}))
+            return out
+        except Exception as exc:
+            span.set_status("internal_error")
+            span.set_data("error.type", type(exc).__name__)
+            raise
+
 BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 GROQ_API_KEY        = os.getenv("GROQ_API_KEY", "")
-LLM_PROVIDER        = os.getenv("LLM_PROVIDER", "ollama")
+LLM_PROVIDER        = os.getenv("LLM_PROVIDER") or os.getenv("GEMMA_PROVIDER") or "groq"
 GEMINI_API_KEY      = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL        = os.getenv("GEMINI_MODEL", "gemma-3-27b-it")
 OLLAMA_HOST         = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL", "gemma3")
-GROQ_MODEL          = os.getenv("GROQ_MODEL", "gemma2-9b-it")
+GROQ_MODEL          = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
 # ─── Screenshot output dir ────────────────────────────────────────────────────
 SCREENSHOTS_DIR = Path(__file__).parent / "static" / "screenshots"
@@ -152,32 +164,35 @@ from urllib.parse import urlparse
 
 def is_ssrf_safe(url: str) -> bool:
     """
-    SSRF guard: only allow http/https to web.archive.org, reject IPs, localhost,
-    private ranges, and non-http schemes. Max 200 chars.
+    SSRF guard: user input is ONLY a search key.
+    Reject IP literals, localhost, non-http schemes, credentials, and inputs > 200 chars.
     """
-    if len(url) > 200:
+    if not url or len(url) > 200:
         return False
+    if ":" in url:
+        scheme = url.split(":", 1)[0].lower()
+        if scheme not in ("http", "https"):
+            return False
+    test_url = url if "://" in url else f"https://{url}"
     try:
-        parsed = urlparse(url)
+        parsed = urlparse(test_url)
     except Exception:
         return False
     if parsed.scheme not in ("http", "https"):
         return False
-    host = parsed.hostname or ""
+    host = (parsed.hostname or "").lower().strip()
     if not host:
         return False
-    host_lower = host.lower()
-    # Only archive.org / web.archive.org allowed
-    if not (host_lower == "web.archive.org" or host_lower.endswith(".web.archive.org")):
+    if parsed.username or parsed.password:
         return False
-    # Reject IP literals
+    if host in ("localhost", "127.0.0.1", "::1", "broadcasthost") or host.endswith(".local") or host.endswith(".internal"):
+        return False
     try:
-        ip = ipaddress.ip_address(host_lower)
-        return False  # IP literal rejected
+        ipaddress.ip_address(host)
+        return False  # All IP literals rejected
     except ValueError:
         pass
-    # Reject localhost / private hostnames
-    if host_lower in ("localhost", "127.0.0.1", "::1"):
+    if not re.match(r"^[a-zA-Z0-9.-]+$", host):
         return False
     return True
 
@@ -186,7 +201,7 @@ WAYBACK_TIMEOUT = 15.0
 WAYBACK_RETRIES = 2
 
 
-async def _cdx_fetch(url: str, params: dict) -> list:
+async def _cdx_fetch_inner(url: str, params: dict) -> list:
     """Fetch CDX with 15s timeout and 2 retries. Returns raw rows (excluding header)."""
     last_err = None
     for attempt in range(WAYBACK_RETRIES + 1):
@@ -206,30 +221,51 @@ async def _cdx_fetch(url: str, params: dict) -> list:
     return []
 
 
+async def _cdx_fetch(url: str, params: dict) -> list:
+    return await traced_tool_async("cdx_query", {"url": url, "params": params}, _cdx_fetch_inner(url, params))
+
+
 async def cdx_has_captures(domain_or_url: str) -> bool:
-    """Return True if the CDX index has at least one 200 capture for this URL/domain."""
-    rows = await _cdx_fetch(domain_or_url, {
-        "url": domain_or_url, "output": "json",
-        "filter": "statuscode:200", "fl": "timestamp", "limit": "1",
+    """Return True if the CDX index has at least one capture for this URL/domain."""
+    clean = re.sub(r"^https?://", "", domain_or_url.strip()).rstrip("/")
+    rows = await _cdx_fetch(clean, {
+        "url": clean, "output": "json",
+        "fl": "timestamp,statuscode", "limit": "1",
     })
+    if not rows and "/" in clean:
+        # Also check root domain if sub-path returned 0
+        root = clean.split("/")[0]
+        rows = await _cdx_fetch(root, {
+            "url": root, "output": "json",
+            "fl": "timestamp,statuscode", "limit": "1",
+        })
     return len(rows) > 0
 
 
-async def wayback_snapshots(url: str, n: int = 6) -> list[dict]:
-    """Return up to n most-recent 200-status snapshots, newest first."""
-    rows = await _cdx_fetch(url, {
-        "url": url, "output": "json",
-        "filter": "statuscode:200", "fl": "timestamp,original",
+async def wayback_snapshots(url: str, n: int = 500) -> list[dict]:
+    """Return snapshots across full archive history, oldest first."""
+    clean = re.sub(r"^https?://", "", url.strip()).rstrip("/")
+    rows = await _cdx_fetch(clean, {
+        "url": clean, "output": "json",
+        "fl": "timestamp,original,statuscode",
+        "collapse": "timestamp:6",
+        "filter": "!statuscode:[45]..",
     })
-    rows.reverse()
-    return [{"timestamp": row[0], "original": row[1]} for row in rows[:n]]
+    if not rows:
+        rows = await _cdx_fetch(clean, {
+            "url": clean, "output": "json",
+            "fl": "timestamp,original,statuscode",
+            "collapse": "timestamp:6",
+        })
+    return [{"timestamp": row[0], "original": row[1], "statuscode": row[2] if len(row) > 2 else "200"} for row in rows[:n]]
 
 
 async def wayback_first_snapshot(url: str) -> dict | None:
-    """Return the very first 200-status snapshot (oldest capture)."""
-    rows = await _cdx_fetch(url, {
-        "url": url, "output": "json", "limit": "1",
-        "filter": "statuscode:200", "fl": "timestamp,original",
+    """Return the very first snapshot (oldest capture)."""
+    clean = re.sub(r"^https?://", "", url.strip()).rstrip("/")
+    rows = await _cdx_fetch(clean, {
+        "url": clean, "output": "json", "limit": "1",
+        "fl": "timestamp,original",
     })
     if rows:
         row = rows[0]
@@ -240,14 +276,21 @@ async def wayback_first_snapshot(url: str) -> dict | None:
 async def build_lifeline(url: str) -> dict:
     """
     Build a year->count map of archive activity using CDX collapse.
-    Returns e.g. {"2009": 12, "2010": 12, ..., "2014": 3}
+    Returns e.g. {"2005": 3, "2006": 11, ..., "2013": 7}
     """
-    rows = await _cdx_fetch(url, {
-        "url": url, "output": "json",
+    clean = re.sub(r"^https?://", "", url.strip()).rstrip("/")
+    rows = await _cdx_fetch(clean, {
+        "url": clean, "output": "json",
         "fl": "timestamp,statuscode",
         "collapse": "timestamp:6",
-        "filter": "statuscode:200",
+        "filter": "!statuscode:[45]..",
     })
+    if not rows:
+        rows = await _cdx_fetch(clean, {
+            "url": clean, "output": "json",
+            "fl": "timestamp,statuscode",
+            "collapse": "timestamp:6",
+        })
     by_year: dict[str, int] = {}
     for row in rows:
         ts = row[0]
@@ -256,58 +299,97 @@ async def build_lifeline(url: str) -> dict:
     return by_year
 
 
+async def propose_and_verify_domain(name_or_url: str) -> str | None:
+    """
+    If name_or_url has captures, return it.
+    Otherwise, if it is a service name, ask LLM for candidate domains and verify with CDX.
+    Reject if 0 captures.
+    """
+    candidate = name_or_url.strip()
+    if await cdx_has_captures(candidate):
+        return candidate
+    
+    # Query LLM for candidate domains
+    prompt = f"""You are an internet archivist. For the dead software/service "{name_or_url}", what was its official domain or primary URL when active?
+Return JSON only: {{"candidates": ["domain.com", "example.com/service"]}}"""
+    raw = await _call_llm(prompt, max_tokens=250, temperature=0.1, stage="archaeologist")
+    if raw:
+        data = _parse_json_safe(raw)
+        if data and "candidates" in data:
+            for cand in data["candidates"]:
+                clean_cand = re.sub(r"^https?://", "", cand.strip()).rstrip("/")
+                if await cdx_has_captures(clean_cand):
+                    return clean_cand
+    return None
+
+
 def select_strategic_snapshots(snapshots: list[dict], lifeline: dict) -> list[dict]:
     """
-    Pick up to 5 strategic snapshots from the newest-first list:
-      birth (oldest), peak (lifeline max year), decline (after peak),
-      last-alive (newest usable), post-death (last overall).
+    Pick up to 5 strategic snapshots across history:
+      1. birth (oldest capture)
+      2. peak (snapshot in peak year of lifeline activity)
+      3. decline (snapshot in year activity began declining)
+      4. last-alive (last capture when service was actively maintained)
+      5. post-death (first capture after shutdown or redirect)
     """
     if not snapshots:
         return []
-    # snapshots are newest-first
-    newest = snapshots[0]
-    oldest = snapshots[-1]
+    
+    by_ts = sorted(snapshots, key=lambda s: s["timestamp"])
+    oldest = by_ts[0]
+    newest = by_ts[-1]
 
     picks: list[dict] = []
     seen_ts: set[str] = set()
 
-    def _add(snap: dict):
+    def _add(snap: dict | None):
         if snap and snap["timestamp"] not in seen_ts:
             picks.append(snap)
             seen_ts.add(snap["timestamp"])
 
-    # birth = oldest
+    # 1. birth
     _add(oldest)
 
-    # peak = snapshot closest to the peak lifeline year
+    # 2. peak year
+    peak_snap = None
     if lifeline:
         peak_year = max(lifeline, key=lifeline.get)
-        best = None
         best_diff = 9999
-        for snap in snapshots:
+        for snap in by_ts:
             diff = abs(int(snap["timestamp"][:4]) - int(peak_year))
             if diff < best_diff:
                 best_diff = diff
-                best = snap
-        _add(best)
+                peak_snap = snap
+        _add(peak_snap)
 
-    # decline = first snapshot after peak year
+    # 3. decline (snapshot after peak year, before final decay)
     if lifeline:
         peak_year = max(lifeline, key=lifeline.get)
-        for snap in snapshots:
+        for snap in by_ts:
             if int(snap["timestamp"][:4]) > int(peak_year):
                 _add(snap)
                 break
 
-    # last-alive = newest
+    # 4. last-alive (mid point between peak and newest, or penultimate snapshot)
+    if len(by_ts) >= 4:
+        # Choose snapshot around the 75th percentile of timeline
+        last_alive_idx = int(len(by_ts) * 0.7)
+        _add(by_ts[last_alive_idx])
+    elif len(by_ts) > 2:
+        _add(by_ts[-2])
+
+    # 5. post-death (newest overall)
     _add(newest)
 
-    # post-death = already newest; skip if duplicate
-    # If we have fewer than 5 and more snapshots exist, fill with mid points
-    if len(picks) < 5 and len(snapshots) > len(picks):
-        mid = snapshots[len(snapshots) // 2]
-        _add(mid)
+    # Ensure at least 3 snapshots if available
+    if len(picks) < 3 and len(by_ts) >= 3:
+        for s in by_ts:
+            _add(s)
+            if len(picks) >= 3:
+                break
 
+    # Return chronological order so earliest is first, but peak/alive are prioritized
+    picks.sort(key=lambda s: s["timestamp"])
     return picks[:5]
 
 
@@ -367,23 +449,29 @@ def _exhume_with_browserbase_inner(archive_link: str, slug: str = "") -> dict:
             # Stagehand-style structured extraction
             extracted_fields = {}
             try:
-                fields_js = json.dumps(STAGEHAND_SCHEMA)
-                raw_fields = page.evaluate(f"""
-                    (() => {{
-                        const schema = {fields_js};
-                        const out = {{}};
-                        for (const [key, type] of Object.entries(schema)) {{
-                            if (type === "string") {{
-                                const el = document.querySelector('[data-{key}], [name="{key}"], .{key}, #{key}');
-                                out[key] = el ? el.innerText || el.getAttribute("content") || "" : "";
-                            }} else if (Array.isArray(type) && type[0] === "string") {{
-                                const els = document.querySelectorAll('[data-{key}-item], .{key}-item, #{key} li');
+                raw_fields = page.evaluate("""
+                    (schema) => {
+                        const out = {};
+                        for (const [key, type] of Object.entries(schema)) {
+                            if (type === "string") {
+                                const el = document.querySelector('[data-' + key + '], [name="' + key + '"], .' + key + ', #' + key);
+                                out[key] = el ? (el.innerText || el.getAttribute("content") || "") : "";
+                            } else if (Array.isArray(type) && type[0] === "string") {
+                                const els = document.querySelectorAll('[data-' + key + '-item], .' + key + '-item, #' + key + ' li');
                                 out[key] = Array.from(els).map(e => e.innerText.trim()).filter(Boolean);
-                            }}
-                        }}
+                            }
+                        }
+                        if (!out.notice_text) {
+                            const noticeEl = document.querySelector('.notice, .banner, .announcement, .alert, #closure, #sunset');
+                            if (noticeEl) out.notice_text = noticeEl.innerText.trim();
+                        }
+                        if (!out.tagline) {
+                            const metaDesc = document.querySelector('meta[name="description"]');
+                            if (metaDesc) out.tagline = metaDesc.getAttribute("content") || "";
+                        }
                         return out;
-                    }})()
-                """)
+                    }
+                """, STAGEHAND_SCHEMA)
                 extracted_fields = raw_fields if isinstance(raw_fields, dict) else {}
             except Exception as e:
                 logger.warning(f"Stagehand extract failed: {e}")
@@ -431,41 +519,38 @@ def exhume_with_browserbase(archive_link: str, slug: str = "") -> dict:
 
 
 async def _http_fetch_inner(archive_link: str) -> dict:
-    """Raw plain-HTTP fallback (no Sentry wrapper)."""
+    """Raw plain-HTTP fallback with id_ raw snapshot URL and text extraction."""
+    raw_link = archive_link
+    if "/web/" in archive_link and "id_/" not in archive_link:
+        raw_link = re.sub(r"/web/(\d+)/", r"/web/id_/", archive_link)
     try:
         async with httpx.AsyncClient(
             timeout=30, follow_redirects=True,
             headers={"User-Agent": "Mozilla/5.0 (compatible; GraveyardBot/1.0)"}
         ) as client:
-            r = await client.get(archive_link)
+            r = await client.get(raw_link)
             html = r.text
-            text = re.sub(r"<[^>]+>", " ", html)
+            text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r"<[^>]+>", " ", text)
             text = re.sub(r"\s+", " ", text).strip()[:6000]
-            return {"title": "", "text": text, "screenshot": None, "replay": None, "error": None,
-                    "fields_filled": 0, "evidence_id": None}
+            # Basic field extraction from html
+            title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+            title = title_match.group(1).strip() if title_match else ""
+            return {"title": title, "text": text, "screenshot": None, "replay": None, "error": None,
+                    "fields_filled": 1 if title else 0, "evidence_id": None, "http_status": r.status_code}
     except Exception as e:
         return {"title": "", "text": "", "screenshot": None, "replay": None, "error": str(e),
-                "fields_filled": 0, "evidence_id": None}
+                "fields_filled": 0, "evidence_id": None, "http_status": None}
 
 
 async def exhume_without_browser(archive_link: str) -> dict:
     """Plain HTTP fallback wrapped in a Sentry execute_tool span."""
-    result_holder = {}
-    async def _run():
-        r = await _http_fetch_inner(archive_link)
-        result_holder["r"] = r
-        return r
-    try:
-        traced_tool(
-            "http_fetch",
-            {"archive_link": archive_link},
-            lambda: asyncio.get_event_loop().run_until_complete(_run()),
-        )
-    except Exception:
-        pass
-    if "r" in result_holder:
-        return result_holder["r"]
-    return await _http_fetch_inner(archive_link)
+    return await traced_tool_async(
+        "http_fetch",
+        {"archive_link": archive_link},
+        _http_fetch_inner(archive_link),
+    )
 
 
 def _clean_wayback_text(text: str) -> str:
@@ -483,53 +568,124 @@ def _clean_wayback_text(text: str) -> str:
 
 async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = "") -> tuple[dict, list[dict]]:
     """
-    Walk through snapshots newest-first, pick the first usable one.
+    Exhumes all strategic snapshots (up to 5, at least 3) following the fallback ladder:
+    Browserbase session -> Stagehand extract + screenshot (on last-alive) -> HTTP id_ fallback.
+    Logs every attempt with method, ts, status, ms, chars, fields_filled, error.
+    Assigns stable evidence IDs E001..E00n.
+    One failing snapshot never fails the dig.
     Returns (best_fetch_result, attempts_log).
-    Each attempt gets an evidence ID E1..En.
     """
     attempts = []
     loop = asyncio.get_event_loop()
+    best_res = None
+    all_texts = []
+    all_fields = {}
 
     for idx, snap in enumerate(snapshots, start=1):
         link = build_archive_url(snap["timestamp"], snap["original"])
+        evidence_id = f"E{idx:03d}"
         t0 = time.time()
+        
+        # Take screenshot for each snapshot until a screenshot is successfully captured
+        snap_slug = slug
+        
+        res = None
+        method = "http"
         if use_browserbase and BROWSERBASE_API_KEY:
-            res = await loop.run_in_executor(None, exhume_with_browserbase, link, slug)
+            try:
+                res = await loop.run_in_executor(None, exhume_with_browserbase, link, snap_slug)
+                method = "browserbase"
+                # If browserbase had an error or zero text, try HTTP fallback ladder
+                if res.get("error") or not usable(res.get("text", "")):
+                    logger.info(f"[{evidence_id}] Browserbase fallback to HTTP for {link}")
+                    fallback_res = await exhume_without_browser(link)
+                    if usable(fallback_res.get("text", "")):
+                        # Retain screenshot/replay from browserbase if captured
+                        fallback_res["screenshot"] = res.get("screenshot") or fallback_res.get("screenshot")
+                        fallback_res["replay"] = res.get("replay") or fallback_res.get("replay")
+                        res = fallback_res
+                        method = "http"
+            except Exception as e:
+                logger.warning(f"[{evidence_id}] Browserbase exception: {e}; falling back to HTTP")
+                res = await exhume_without_browser(link)
+                method = "http"
         else:
             res = await exhume_without_browser(link)
+            method = "http"
 
         elapsed = round(time.time() - t0, 1)
-        ok = usable(res.get("text", ""))
-        attempts.append({
+        text = res.get("text", "") or ""
+        ok = usable(text)
+        fields_filled = res.get("fields_filled", 0)
+
+        attempt_log = {
+            "evidence_id": evidence_id,
             "ts": snap["timestamp"],
             "link": link,
-            "method": "browserbase" if (use_browserbase and BROWSERBASE_API_KEY) else "http",
+            "method": method,
             "status": "ok" if ok else "failed",
+            "http_status": res.get("http_status", 200 if ok else None),
             "ms": int(elapsed * 1000),
-            "chars": len(res.get("text", "")),
-            "fields_filled": res.get("fields_filled", 0),
+            "chars": len(text),
+            "fields_filled": fields_filled,
             "error": res.get("error"),
-            "evidence_id": f"E{idx:03d}",
-        })
-        logger.info(f"[exhume] ts={snap['timestamp']} ok={ok} chars={len(res.get('text',''))} secs={elapsed}")
+            "screenshot": res.get("screenshot"),
+            "replay": res.get("replay"),
+            "text": text[:2000],
+        }
+        attempts.append(attempt_log)
+        logger.info(f"[exhume] {evidence_id} ts={snap['timestamp']} method={method} ok={ok} chars={len(text)} secs={elapsed}")
 
+        # Accumulate usable text and fields
         if ok:
-            res["_archive_url"] = link
-            res["_evidence_id"] = f"E{idx:03d}"
-            return res, attempts
+            all_texts.append(f"--- Snapshot {snap['timestamp']} [{evidence_id}] ---\n{text}")
+            if res.get("extracted_fields"):
+                all_fields.update(res["extracted_fields"])
+            if best_res is None or (res.get("screenshot") and not best_res.get("screenshot")):
+                best_res = dict(res)
+                best_res["_archive_url"] = link
+                best_res["_evidence_id"] = evidence_id
 
-    # None were usable — return last attempt anyway (one failing snapshot never fails the dig)
-    if attempts:
-        last_link = build_archive_url(snapshots[-1]["timestamp"], snapshots[-1]["original"])
-        if use_browserbase and BROWSERBASE_API_KEY:
-            res = await loop.run_in_executor(None, exhume_with_browserbase, last_link, slug)
-        else:
-            res = await exhume_without_browser(last_link)
-        res["_archive_url"] = last_link
-        return res, attempts
+    # Collect any captured screenshot and replay across all attempts
+    sc_found = None
+    rp_found = None
+    for a in attempts:
+        if a.get("screenshot") and not sc_found:
+            sc_found = a["screenshot"]
+        if a.get("replay") and not rp_found:
+            rp_found = a["replay"]
 
-    return {"title": "", "text": "", "screenshot": None, "replay": None, "error": "no_snapshots",
-            "fields_filled": 0, "evidence_id": None}, attempts
+    # If none were strictly usable, pick the attempt with the most characters
+    if not best_res and attempts:
+        best_attempt = max(attempts, key=lambda a: a.get("chars", 0))
+        best_res = {
+            "title": "",
+            "text": best_attempt.get("text", ""),
+            "screenshot": sc_found,
+            "replay": rp_found,
+            "error": best_attempt.get("error"),
+            "fields_filled": best_attempt.get("fields_filled", 0),
+            "_archive_url": best_attempt["link"],
+            "_evidence_id": best_attempt["evidence_id"],
+        }
+    elif best_res:
+        if not best_res.get("screenshot") and sc_found:
+            best_res["screenshot"] = sc_found
+        if not best_res.get("replay") and rp_found:
+            best_res["replay"] = rp_found
+
+    if not best_res:
+        best_res = {
+            "title": "", "text": "", "screenshot": None, "replay": None,
+            "error": "no_snapshots", "fields_filled": 0, "_archive_url": None, "_evidence_id": None,
+        }
+
+    # Combined evidence text across all snapshots
+    if all_texts:
+        best_res["text"] = "\n\n".join(all_texts)[:8000]
+    best_res["extracted_fields"] = all_fields
+
+    return best_res, attempts
 
 
 # ─── Stage 3: Coroner — cause of death ────────────────────────────────────────
@@ -540,22 +696,45 @@ SHUTDOWN_PHRASES = [
     "end of life", "going offline", "goodbye", "farewell",
 ]
 
-LABEL_MAP = {
-    "acquired_or_redirected": "Acquired or redirected",
-    "announced_shutdown":     "Announced shutdown",
-    "slow_abandonment":       "Slow abandonment",
-    "vanished":               "Vanished without notice",
-    "unknown":                "Unknown",
-}
+# WORKFLOW.md cause enum
+from typing import Literal
 
-VALID_CAUSE_LABELS = list(LABEL_MAP.keys())
+VALID_CAUSES = [
+    "shut_down",
+    "acquired_and_killed",
+    "pivoted",
+    "outcompeted",
+    "tech_obsolete",
+    "abandoned",
+    "unknown",
+]
+
+CauseLiteral = Literal[
+    "shut_down",
+    "acquired_and_killed",
+    "pivoted",
+    "outcompeted",
+    "tech_obsolete",
+    "abandoned",
+    "unknown",
+]
+
+CAUSE_LABEL_DISPLAY = {
+    "shut_down": "Announced shutdown",
+    "acquired_and_killed": "Acquired and killed",
+    "pivoted": "Pivoted",
+    "outcompeted": "Outcompeted",
+    "tech_obsolete": "Technologically obsolete",
+    "abandoned": "Abandoned",
+    "unknown": "Unknown",
+}
 
 
 class CoronerOutput(BaseModel):
-    label: str = Field(..., description="One of: " + ", ".join(VALID_CAUSE_LABELS))
-    cause_of_death: str = Field(..., description="One sentence, start with 'Likely: '")
-    evidence: list[str] = Field(default_factory=list, description="Evidence signal IDs or descriptions used")
-    cause_is_rumored: bool = True
+    cause: CauseLiteral = Field(..., description="One of: " + ", ".join(VALID_CAUSES))
+    time_of_death: str = Field(default="unknown", description="Year or month/year of death, e.g. '2013'")
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence score 0.0 to 1.0")
+    evidence_ids: list[str] = Field(default_factory=list, description="List of evidence IDs used, e.g. ['E001']")
 
 def coroner_rules(
     text: str,
@@ -636,76 +815,97 @@ Last seen alive: {last_seen_alive}
 Rule signals already detected:
 {signals}
 
-Last page text (first 2000 chars):
+Archived evidence text:
 \"\"\"
 {text}
 \"\"\"
 
-Based ONLY on the evidence above, determine the most likely cause of death.
-You MUST cite which signal(s) you used by referencing their evidence IDs (e.g., E001, E002).
+Task: Based strictly on the evidence above, determine cause of death.
+Allowed cause values (enum in WORKFLOW.md):
+- shut_down (announced official sunset/shutdown)
+- acquired_and_killed (acquired by another company and discontinued)
+- pivoted (changed into another product)
+- outcompeted (lost market share to rivals)
+- tech_obsolete (Flash, plugins, or obsolete protocols)
+- abandoned (slowly stopped updates/decayed)
+- unknown (no clear evidence)
+
+If no evidence supports a cause, you MUST return "unknown". Never guess.
 
 Respond with JSON only:
-{{"label": "<one of: acquired_or_redirected|announced_shutdown|slow_abandonment|vanished|unknown>",
-  "cause_of_death": "<one sentence, start with 'Likely: '>",
-  "evidence": ["<evidence id used>", "<evidence id used if any>"],
-  "cause_is_rumored": <true|false>}}
+{{"cause": "<one of: shut_down|acquired_and_killed|pivoted|outcompeted|tech_obsolete|abandoned|unknown>",
+  "time_of_death": "<year or month/year, e.g. 2013>",
+  "confidence": <number between 0.0 and 1.0>,
+  "evidence_ids": ["<E001>", "<E002>"]}}
 
 JSON:"""
 
 
 async def coroner_hybrid(
     name: str, url: str, first_archived: str, last_seen_alive: str,
-    text: str, lifeline: dict, final_url: str,
+    text: str, lifeline: dict, final_url: str, evidence: list[dict] | None = None,
 ) -> dict:
-    """Hybrid coroner: rules provide signals, Gemma decides with Pydantic validation."""
+    """Hybrid coroner: deterministic signals first, then LLM returns strict JSON validated with Pydantic (retry once)."""
     rule_label, rule_signals = coroner_rules(text, lifeline, final_url, url)
-    signals_text = "\n".join(f"- {s}" for s in rule_signals)
+    
+    # Map rule label to WORKFLOW enum
+    rule_to_enum = {
+        "acquired_or_redirected": "acquired_and_killed",
+        "announced_shutdown": "shut_down",
+        "slow_abandonment": "abandoned",
+        "vanished": "abandoned",
+        "unknown": "unknown",
+    }
+    fallback_cause = rule_to_enum.get(rule_label, "unknown")
 
+    # If no text and no rule signals, return unknown directly
+    if not text and (not rule_signals or rule_signals == ["No clear signals detected from archive data."]):
+        return {
+            "cause_label": "unknown",
+            "cause_of_death": "Likely: Unknown — insufficient archive evidence.",
+            "cause_evidence": json.dumps([]),
+            "cause_is_rumored": True,
+        }
+
+    signals_text = "\n".join(f"- {s}" for s in rule_signals)
     prompt = CORONER_PROMPT.format(
         name=name, url=url,
         first_archived=first_archived or "unknown",
         last_seen_alive=last_seen_alive or "unknown",
         signals=signals_text,
-        text=text[:2000] if text else "(no text extracted)",
+        text=text[:3000] if text else "(no text extracted)",
     )
 
     # Try LLM with Pydantic validation, retry once on invalid JSON
-    raw = await _call_llm(prompt, max_tokens=400, temperature=0.3, stage="coroner")
-    if raw:
-        result = _parse_json_safe(raw)
-        if result:
-            try:
-                validated = CoronerOutput(**result)
-                if validated.label in VALID_CAUSE_LABELS:
-                    return {
-                        "cause_label": validated.label,
-                        "cause_of_death": validated.cause_of_death,
-                        "cause_evidence": json.dumps(validated.evidence if validated.evidence else rule_signals),
-                        "cause_is_rumored": validated.cause_is_rumored,
-                    }
-            except ValidationError:
-                logger.warning(f"Coroner Pydantic validation failed, retrying once...")
-                # Retry once
-                raw2 = await _call_llm(prompt, max_tokens=400, temperature=0.3, stage="coroner")
-                if raw2:
-                    result2 = _parse_json_safe(raw2)
-                    if result2:
-                        try:
-                            validated2 = CoronerOutput(**result2)
-                            if validated2.label in VALID_CAUSE_LABELS:
-                                return {
-                                    "cause_label": validated2.label,
-                                    "cause_of_death": validated2.cause_of_death,
-                                    "cause_evidence": json.dumps(validated2.evidence if validated2.evidence else rule_signals),
-                                    "cause_is_rumored": validated2.cause_is_rumored,
-                                }
-                        except ValidationError:
-                            pass
+    for attempt in range(2):
+        raw = await _call_llm(prompt, max_tokens=400, temperature=0.2, stage="coroner")
+        if raw:
+            result = _parse_json_safe(raw)
+            if result:
+                # Handle possible key naming variations from LLM
+                if "cause_label" in result and "cause" not in result:
+                    result["cause"] = result["cause_label"]
+                if "label" in result and "cause" not in result:
+                    result["cause"] = rule_to_enum.get(result["label"], result["label"])
+                try:
+                    validated = CoronerOutput(**result)
+                    if validated.cause in VALID_CAUSES:
+                        c_display = CAUSE_LABEL_DISPLAY.get(validated.cause, validated.cause.replace('_', ' ').title())
+                        time_str = f" ({validated.time_of_death})" if validated.time_of_death != "unknown" else ""
+                        return {
+                            "cause_label": validated.cause,
+                            "cause_of_death": f"Likely: {c_display}{time_str}",
+                            "cause_evidence": json.dumps(validated.evidence_ids if validated.evidence_ids else rule_signals),
+                            "cause_is_rumored": validated.confidence < 0.7 or not validated.evidence_ids,
+                        }
+                except ValidationError as ve:
+                    logger.warning(f"Coroner validation attempt {attempt+1} failed: {ve}")
 
     # Fallback to rules-only
+    c_display = CAUSE_LABEL_DISPLAY.get(fallback_cause, fallback_cause)
     return {
-        "cause_label": rule_label,
-        "cause_of_death": f"Likely: {LABEL_MAP.get(rule_label, 'unknown')} — " + (rule_signals[0] if rule_signals else "unknown"),
+        "cause_label": fallback_cause,
+        "cause_of_death": f"Likely: {c_display} — " + (rule_signals[0] if rule_signals else "unknown"),
         "cause_evidence": json.dumps(rule_signals),
         "cause_is_rumored": True,
     }
@@ -1086,13 +1286,13 @@ async def full_dig(
         result["eulogy"] = "This site was never captured by the Wayback Machine, or it has been excluded."
         return result
 
-    # birth = oldest strategic snapshot
-    first_snap = snapshots[-1]
+    # birth = oldest strategic snapshot (snapshots are sorted chronologically)
+    first_snap = snapshots[0]
     result["first_archived"] = format_wayback_date(first_snap["timestamp"])
     result["first_archive_url"] = build_archive_url(first_snap["timestamp"], first_snap["original"])
 
     # last-alive = newest strategic snapshot
-    last_snap = snapshots[0]
+    last_snap = snapshots[-1]
     result["last_seen_alive"] = format_wayback_date(last_snap["timestamp"])
     result["archive_url"] = build_archive_url(last_snap["timestamp"], last_snap["original"])
 
@@ -1116,7 +1316,7 @@ async def full_dig(
     if not name and fetch_result.get("title"):
         result["name"] = fetch_result["title"]
 
-    recovered = sum(1 for a in attempts if a["ok"])
+    recovered = sum(1 for a in attempts if a.get("status") == "ok")
     logger.info(f"[exhume] {len(attempts)} attempts, {recovered} usable")
 
     # ── Stage 3: Coroner ──────────────────────────────────────────────────────

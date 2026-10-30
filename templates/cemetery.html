@@ -141,7 +141,7 @@ form.addEventListener('submit', async (e) => {
   const name = document.getElementById('name-input').value;
 
   btn.disabled = true;
-  btn.textContent = '⛏ Digging...';
+  btn.textContent = 'Digging...';
   progress.style.display = 'block';
   doneEl.style.display = 'none';
   errorEl.style.display = 'none';
@@ -178,7 +178,7 @@ async function pollJob(job_id) {
         linkEl.href = `/grave/${data.grave_slug}`;
         linkEl.textContent = `→ Visit ${data.grave_slug}`;
         btn.disabled = false;
-        btn.textContent = '⛏ Dig Up & Bury';
+        btn.textContent = 'Dig Up & Bury';
         form.reset();
         // Add card to grid
         addTombstoneCard(data.grave_slug);
@@ -198,7 +198,7 @@ function showError(msg) {
   errorEl.style.display = 'block';
   errorMsg.textContent = msg;
   btn.disabled = false;
-  btn.textContent = '⛏ Dig Up & Bury';
+  btn.textContent = 'Dig Up & Bury';
 }
 
 async function addTombstoneCard(slug) {
