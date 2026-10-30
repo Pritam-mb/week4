@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Benchmark Results -- Graveyard of Dead Software{% endblock %}
+{% block description %}Eval A: HTTP vs Browserbase on 35 archived dead sites. Usable text rate, avg characters, and timing.{% endblock %}
+
+{% block content %}
+<main class="container" style="padding-top:2rem;padding-bottom:4rem;">
+
+  <h1 class="site-title" style="text-align:center;margin-bottom:0.5rem;">Eval A: Extraction Benchmark</h1>
+  <p style="text-align:center;color:var(--text-dim);font-style:italic;font-family:var(--font-body);margin-bottom:3rem;">
+    Does Browserbase beat plain HTTP on archived pages?
+    Measured on {{ rows | length // 2 if rows else 0 }} dead sites across 4 categories.
+  </p>
+
+  <!-- Summary cards -->
+  {% if summary %}
+  <div class="benchmark-summary">
+    {% for path_name, s in summary.items() %}
+    <div class="benchmark-card {% if path_name == "browserbase" %}card-bb{% else %}card-http{% endif %}">
+      <div class="bench-card-title">{{ path_name | upper }}</div>
+      <div class="bench-stat">
+        <span class="bench-stat-val">{{ s.usable_pct }}%</span>
+        <span class="bench-stat-label">Usable pages</span>
+      </div>
+      <div class="bench-stat">
+        <span class="bench-stat-val">{{ "{:,}".format(s.avg_chars) }}</span>
+        <span class="bench-stat-label">Avg chars</span>
+      </div>
+      <div class="bench-stat">
+        <span class="bench-stat-val">{{ s.avg_secs }}s</span>
+        <span class="bench-stat-label">Avg time</span>
+      </div>
+      {% if s.top_errors %}
+      <div class="bench-errors">
+        {% for err, cnt in s.top_errors %}
+        <span class="badge" style="margin:0.15rem;">{{ err }}&times;{{ cnt }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-benchmark">
+    <p>&#x23F3; No benchmark data yet.</p>
+    <p style="font-family:var(--font-ui);font-size:0.9rem;margin-top:0.5rem;">
+      Run <code>venv\Scripts\python.exe benchmark.py</code> to populate this table.
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- Full results table -->
+  {% if rows %}
+  <div class="section-divider" style="margin:3rem 0 2rem;">
+    <span class="section-divider-text">Full Results</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="benchmark-table" id="benchmark-table">
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>Type</th>
+          <th>Path</th>
+          <th>Usable</th>
+          <th>Chars</th>
+          <th>Secs</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{{ "row-ok" if r.usable else "row-bad" }}">
+          <td class="url-cell" title="{{ r.url }}">{{ r.url | truncate(40, True) }}</td>
+          <td><span class="type-badge type-{{ r.site_type }}">{{ r.site_type }}</span></td>
+          <td><span class="path-badge path-{{ r.path }}">{{ r.path }}</span></td>
+          <td>{{ "&#x2705;" if r.usable else "&#x274C;" }}</td>
+          <td>{{ "{:,}".format(r.chars) }}</td>
+          <td>{{ r.secs }}s</td>
+          <td style="font-size:0.78rem;color:var(--text-dim);">{{ r.error or "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="section-divider" style="margin:3rem 0 2rem;">
+    <span class="section-divider-text">Methodology</span>
+  </div>
+  <div class="grave-panel" style="max-width:700px;margin:0 auto;">
+    <p style="font-family:var(--font-body);font-size:0.95rem;line-height:1.8;color:var(--text-light);">
+      Each URL was looked up in the Wayback Machine CDX API to get the most recent 200-status snapshot.
+      That snapshot was then fetched via <strong>plain HTTP</strong> (no JavaScript execution) and
+      separately via <strong>Browserbase</strong> (a full Chromium browser in the cloud).
+      A page is considered <em>usable</em> if it contains more than 400 characters and does not
+      match known bad-page markers (domain-for-sale, 404 banners, redirect notices, etc.).
+    </p>
+  </div>
+
+</main>
+{% endblock %}

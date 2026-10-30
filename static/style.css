@@ -1,0 +1,157 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root{
+  --ink:#0E0C0A;
+  --soil:#17140F;
+  --earth:#221D16;
+  --line:#3A3228;
+  --bone:#EDE4D3;
+  --ash:#A89E8C;
+  --marigold:#F2A22A;
+  --ember:#C8541F;
+  --sage:#7C8B6A;
+  --crimson:#9E2B25;
+
+  --font-serif:'Cormorant Garamond', Georgia, serif;
+  --font-mono:'IBM Plex Mono', ui-monospace, monospace;
+
+  --max-width:1100px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  color:var(--bone);
+  font-family:var(--font-serif);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+a{color:var(--marigold);text-decoration:none}
+a:hover,a:focus{color:var(--ember);outline:0}
+:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
+
+/* film grain */
+.grain{
+  position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* layout */
+.container{max-width:var(--max-width);margin:0 auto;padding:0 1.25rem;position:relative;z-index:2}
+main{position:relative;z-index:2}
+
+/* papel picado banner */
+.papel-picado{
+  background:var(--soil);
+  border-bottom:1px solid var(--line);
+  padding:.4rem 0;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  gap:1.5rem;
+}
+.papel-picado svg{height:24px;width:auto;display:block}
+.papel-picado .flag{fill:none;stroke-width:1;stroke:var(--line)}
+.papel-picado .flag.marigold{stroke:var(--marigold)}
+.papel-picado .flag.ember{stroke:var(--ember)}
+
+/* header */
+.site-header{text-align:center;padding:3.5rem 1rem 2.5rem}
+.site-title{font-family:var(--font-serif);font-size:clamp(2.5rem,6vw,4.5rem);letter-spacing:-.01em;margin:.5rem 0;font-weight:700}
+.site-tagline{font-family:var(--font-mono);font-size:.85rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ash);margin:0}
+
+/* nav */
+.nav{position:sticky;top:0;background:var(--soil);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.25rem;z-index:10}
+.nav-brand{font-family:var(--font-serif);font-size:1.1rem}
+.nav-links{list-style:none;display:flex;gap:1.5rem;margin:0;padding:0}
+.nav-links a{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ash)}
+.nav-links a:hover{color:var(--bone)}
+
+/* cemetery grid */
+.cemetery-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:2rem;padding:2rem 0 4rem
+}
+.tombstone-card{
+  display:block;background:var(--soil);border:1px solid var(--line);border-top-left-radius:48px;border-top-right-radius:48px;border-bottom-left-radius:0;border-bottom-right-radius:0;padding:2.5rem 1.5rem 1.5rem;position:relative;text-decoration:none;color:inherit;transition:border-color .18s,transform .18s
+}
+.tombstone-card:hover,.tombstone-card:focus{border-color:var(--marigold);transform:translateY(-2px);outline:0}
+.tombstone-cross{display:none}
+.tombstone-name{font-family:var(--font-serif);font-size:1.6rem;line-height:1.1;margin:.5rem 0 .25rem;text-align:center}
+.tombstone-dates{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ash);text-align:center;margin-bottom:.75rem}
+.tombstone-epitaph{font-family:var(--font-serif);font-size:1rem;font-style:italic;color:var(--bone);text-align:center;margin:1rem 0 1rem}
+.tombstone-footer{display:flex;justify-content:center;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:.8rem;color:var(--ash)}
+.marigold-icon{display:inline-block;width:18px;height:18px}
+.marigold-count{font-variant-numeric:tabular-nums}
+
+/* bury section */
+.section-divider{margin:3rem 0 2rem;display:flex;align-items:center;gap:.75rem;color:var(--ash);font-family:var(--font-mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase}
+.section-divider::before,.section-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.bury-section{max-width:680px;margin:0 auto}
+.stage-pipeline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin:1.5rem 0 2rem}
+.stage{display:flex;flex-direction:column;align-items:center;gap:.3rem;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ash);border:1px solid var(--line);background:var(--soil);padding:.5rem .6rem}
+.stage.active{border-color:var(--marigold);color:var(--marigold)}
+.stage.done{border-color:var(--sage);color:var(--sage)}
+.stage.failed{border-color:var(--crimson);color:var(--crimson)}
+.stage-connector{height:1px;background:var(--line);flex:1;min-width:24px;margin:.4rem 0;transform:translateY(-50%)}
+.form-group{margin-bottom:1.25rem}
+.form-label{display:block;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ash);margin-bottom:.4rem}
+.form-input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);color:var(--bone);font-family:var(--font-mono);font-size:.95rem;padding:.4rem 0;outline:0}
+.form-input:focus{border-bottom-color:var(--marigold)}
+.bury-btn{display:inline-block;background:var(--marigold);color:var(--ink);font-family:var(--font-serif);font-size:1.1rem;padding:.8rem 1.2rem;border:0;cursor:pointer;transition:background .16s,transform .16s}
+.bury-btn:hover{background:var(--ember);color:var(--bone);transform:translateY(-1px)}
+
+/* grave page */
+.grave-hero{text-align:center;padding:3rem 1rem 2rem}
+.grave-rip{font-family:var(--font-mono);letter-spacing:.3em;text-transform:uppercase;color:var(--ash);font-size:.75rem;margin-bottom:1rem}
+.grave-name{font-size:clamp(2.5rem,6vw,4rem);margin:.25rem 0 .5rem}
+.grave-dates{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.12em;color:var(--ash)}
+.grave-epitaph{font-family:var(--font-serif);font-style:italic;font-size:1.35rem;max-width:62ch;margin:1rem auto 1.5rem}
+.marigold-section{text-align:center;margin:1.5rem 0}
+.marigold-btn{background:var(--marigold);color:var(--ink);border:0;font-family:var(--font-serif);font-size:1.05rem;padding:.7rem 1.1rem;cursor:pointer;display:inline-flex;align-items:center;gap:.6rem}
+.marigold-btn:disabled{opacity:.6;cursor:not-allowed}
+.marigold-total{font-family:var(--font-mono);font-size:.8rem;color:var(--ash);margin-top:.5rem}
+.disclaimer{font-family:var(--font-mono);font-size:.7rem;color:var(--ash);text-align:center;margin:1rem auto;max-width:60ch}
+.back-link{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.08em;display:inline-block;margin-top:1rem}
+
+/* two column */
+.grave-content{display:grid;grid-template-columns:1.2fr .8fr;gap:2.5rem;max-width:var(--max-width);margin:0 auto;padding:2rem 1.25rem 4rem}
+@media(max-width:900px){.grave-content{grid-template-columns:1fr}}
+.grave-panel{background:var(--soil);border:1px solid var(--line);padding:1.5rem;margin-bottom:1.5rem}
+.grave-panel h3{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ash);margin:0 0 .75rem;border-bottom:1px solid var(--line);padding-bottom:.5rem}
+.grave-eulogy{font-family:var(--font-serif);font-size:1.1rem;max-width:65ch}
+
+/* right column */
+.cause-of-death{font-family:var(--font-mono);font-size:.85rem;margin:1rem 0;border:1px solid var(--line);padding:.8rem;background:var(--earth)}
+.badge{display:inline-block;font-family:var(--font-mono);font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--line);padding:.15rem .5rem;margin-right:.5rem}
+.replay-link{display:inline-block;font-family:var(--font-mono);font-size:.75rem;border:1px solid var(--line);padding:.4rem .7rem;margin-top:.75rem}
+.sources-list{display:flex;flex-direction:column;gap:.5rem}
+.source-link{font-family:var(--font-mono);font-size:.78rem;border-bottom:1px solid var(--line);display:inline-block;padding:.2rem 0}
+
+/* lifeline */
+.lifeline-panel{margin:2rem 0}
+.panel-sub{font-family:var(--font-mono);font-size:.72rem;color:var(--ash)}
+.lifeline-chart{display:flex;align-items:flex-end;gap:.4rem;height:140px;margin:1rem 0;overflow-x:auto;padding-bottom:.5rem}
+.lifeline-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:.3rem;min-width:28px}
+.lifeline-bar{background:var(--marigold);width:20px;min-height:4px}
+.lifeline-year{font-family:var(--font-mono);font-size:.6rem;color:var(--ash);writing-mode:vertical-rl}
+
+/* screenshot */
+.grave-screenshot{width:100%;border:1px solid var(--line);filter:saturate(.85);background:#000}
+.screenshot-placeholder{border:1px dashed var(--line);text-align:center;padding:3rem;font-family:var(--font-mono);font-size:.75rem;color:var(--ash)}
+
+/* footer */
+.site-footer{border-top:1px solid var(--line);padding:2rem 1.25rem;text-align:center;font-family:var(--font-mono);font-size:.7rem;color:var(--ash)}
+
+/* utilities */
+.text-center{text-align:center}
+.petals-container{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.petal{position:absolute;top:-40px;width:18px;height:18px;opacity:.6;animation:fall linear infinite}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.petal{display:none}}
+
+/* 2px marigold focus visible */
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
+
+/* responsive */
+@media(max-width:600px){.nav-links{display:none}.cemetery-grid{grid-template-columns:1fr;padding:1rem 0}}

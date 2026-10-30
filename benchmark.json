@@ -1,0 +1,142 @@
+[
+  {
+    "url": "http://www.altavista.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.geocities.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.angelfire.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.theglobe.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.excite.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.lycos.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.ask.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.webvan.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.pets.com",
+    "type": "html"
+  },
+  {
+    "url": "http://www.google.com/wave/",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.aol.com/aim/",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.google.com/reader/",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.google.com/buzz/",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.friendfeed.com",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.posterous.com",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.picnik.com",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.grooveshark.com",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.netscape.com",
+    "type": "redirect"
+  },
+  {
+    "url": "http://www.geocities.jp",
+    "type": "redirect"
+  },
+  {
+    "url": "http://delicious.com",
+    "type": "redirect"
+  },
+  {
+    "url": "http://www.digg.com",
+    "type": "redirect"
+  },
+  {
+    "url": "http://www.stumbleupon.com",
+    "type": "redirect"
+  },
+  {
+    "url": "http://www.miniclip.com/games/flash",
+    "type": "flash"
+  },
+  {
+    "url": "http://www.addictinggames.com",
+    "type": "flash"
+  },
+  {
+    "url": "http://www.flasharcade.com",
+    "type": "flash"
+  },
+  {
+    "url": "http://code.google.com/p/chromium/",
+    "type": "project"
+  },
+  {
+    "url": "http://www.readwriteweb.com",
+    "type": "project"
+  },
+  {
+    "url": "http://www.techcrunch.com/crunchbase/",
+    "type": "project"
+  },
+  {
+    "url": "http://www.google.com/notebook/",
+    "type": "project"
+  },
+  {
+    "url": "http://www.google.com/health/",
+    "type": "project"
+  },
+  {
+    "url": "http://www.microsoft.com/silverlight/",
+    "type": "project"
+  },
+  {
+    "url": "http://www.adobe.com/flashplayer/",
+    "type": "flash"
+  },
+  {
+    "url": "http://www.myspace.com",
+    "type": "redirect"
+  },
+  {
+    "url": "http://www.vine.co",
+    "type": "js-heavy"
+  },
+  {
+    "url": "http://www.bebo.com",
+    "type": "html"
+  }
+]

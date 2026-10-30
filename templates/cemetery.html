@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Graveyard of Dead Software — The Internet's Cemetery{% endblock %}
+{% block description %}A public night-time cemetery for dead software, apps, and websites. Exhumed from the Wayback Machine, eulogized by Gemma. Leave a marigold.{% endblock %}
+
+{% block content %}
+<header class="site-header container">
+  <div class="moon" aria-hidden="true"></div>
+  <h1 class="site-title">Graveyard of Dead Software</h1>
+  <p class="site-tagline">Every grave here was killed by someone. This one runs on open weights — it can't die.</p>
+</header>
+
+<main class="container">
+
+  <!-- Stats bar -->
+  <div id="stats-bar" style="display:flex; gap:2rem; justify-content:center; margin-bottom:2rem; flex-wrap:wrap;">
+    <span style="font-family:var(--font-mono); font-size:0.85rem; color:var(--ash);">
+      <strong style="color:var(--bone)">{{ graves|length }}</strong> graves
+    </span>
+    <span style="font-family:var(--font-mono); font-size:0.85rem; color:var(--ash);">
+      <strong style="color:var(--bone)">{{ graves|sum(attribute='marigolds') }}</strong> marigolds
+    </span>
+  </div>
+
+  <!-- Cemetery grid -->
+  {% if graves %}
+  <div class="cemetery-grid" id="cemetery-grid">
+    {% for grave in graves %}
+    <a href="/grave/{{ grave.slug }}" class="tombstone-card fade-in-up" id="tomb-{{ grave.slug }}">
+      <div class="tombstone-name">{{ grave.name }}</div>
+      <div class="tombstone-dates">
+        {% if grave.first_archived %}{{ grave.first_archived }}{% else %}?{% endif %}
+        &nbsp;–&nbsp;
+        {% if grave.last_seen_alive %}{{ grave.last_seen_alive }}{% else %}?{% endif %}
+      </div>
+      {% if grave.epitaph %}
+      <div class="tombstone-epitaph">"{{ grave.epitaph }}"</div>
+      {% endif %}
+      <div class="tombstone-footer">
+        <span class="marigold-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2c1.5 2 3 3 5 3-1 2-2.5 3-4 4 1 1.5 1.5 3 1 5-2-1-3.5-2.5-5-4-1.5 1.5-3 3-5 4 0-2 .5-3.5 1.5-5-1.5-1-3-2-4-4 2 0 3.5-1 5-3z" fill="var(--marigold)"/></svg>
+        </span>
+        <span class="marigold-count">{{ grave.marigolds }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-center" style="color:var(--text-dim); padding:4rem 0;">The cemetery is empty. Be the first to bury something.</p>
+  {% endif %}
+
+  <!-- Bury a project -->
+  <div class="section-divider" id="bury">
+    <span class="section-divider-text">Bury a Project</span>
+  </div>
+
+  <div class="bury-section">
+    <p style="text-align:center; color:var(--ash); font-style:italic; margin-bottom:1rem;">
+      Know of dead software that deserves a grave? The 5-stage pipeline will investigate and prove its cause of death.
+    </p>
+    <div class="stage-pipeline" style="margin-bottom:2rem;">
+      <div class="stage done"><span>Archaeologist</span></div>
+      <div class="stage-connector"></div>
+      <div class="stage done"><span>Exhumer</span></div>
+      <div class="stage-connector"></div>
+      <div class="stage done"><span>Coroner</span></div>
+      <div class="stage-connector"></div>
+      <div class="stage done"><span>Eulogist</span></div>
+      <div class="stage-connector"></div>
+      <div class="stage done"><span>Fact-checker</span></div>
+    </div>
+
+    <div class="bury-form">
+      <form id="bury-form">
+        <div class="form-group">
+          <label class="form-label" for="url-input">Dead URL or domain</label>
+          <input
+            type="url"
+            id="url-input"
+            name="url"
+            class="form-input"
+            placeholder="https://example.com"
+            required
+            pattern="https?://.+"
+          >
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="name-input">Project name (optional)</label>
+          <input
+            type="text"
+            id="name-input"
+            name="name"
+            class="form-input"
+            placeholder="e.g. Netscape Navigator"
+            maxlength="200"
+          >
+        </div>
+        <button type="submit" class="bury-btn" id="bury-btn">
+          ⛏ Dig Up &amp; Bury
+        </button>
+      </form>
+
+      <div class="job-progress" id="job-progress">
+        <div id="job-spinner" class="spinner"></div>
+        <span class="job-message" id="job-message">Queued...</span>
+        <div style="margin-top:0.75rem;font-family:var(--font-ui);font-size:0.72rem;color:var(--text-dim);">
+          Stages: &#x1F9B4; Archaeologist &rarr; &#x26B0;&#xFE0F; Exhumer &rarr; &#x1F52C; Coroner &rarr; &#x270D;&#xFE0F; Eulogist &rarr; &#x1F50E; Fact-checker
+        </div>
+      </div>
+
+      <div id="job-done" style="display:none; text-align:center; margin-top:1.5rem;">
+        <p style="color:var(--gold); font-family:var(--font-serif); font-size:1.1rem; margin-bottom:0.75rem;">The grave is ready.</p>
+        <a id="job-link" href="#" style="font-family:var(--font-ui); font-size:0.9rem;">→ Visit the grave</a>
+      </div>
+
+      <div id="job-error" style="display:none; text-align:center; margin-top:1.5rem;">
+        <p style="color:#e05555; font-family:var(--font-ui); font-size:0.9rem;" id="job-error-msg">Something went wrong.</p>
+      </div>
+
+      <p class="disclaimer" style="margin-top:1.5rem;">
+        Rate limited to 3 submissions per hour. Submissions use a real browser session via Browserbase.
+      </p>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const form = document.getElementById('bury-form');
+const btn  = document.getElementById('bury-btn');
+const progress = document.getElementById('job-progress');
+const msgEl    = document.getElementById('job-message');
+const doneEl   = document.getElementById('job-done');
+const linkEl   = document.getElementById('job-link');
+const errorEl  = document.getElementById('job-error');
+const errorMsg = document.getElementById('job-error-msg');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url  = document.getElementById('url-input').value;
+  const name = document.getElementById('name-input').value;
+
+  btn.disabled = true;
+  btn.textContent = '⛏ Digging...';
+  progress.style.display = 'block';
+  doneEl.style.display = 'none';
+  errorEl.style.display = 'none';
+  msgEl.textContent = 'Starting...';
+
+  try {
+    const fd = new FormData();
+    fd.append('url', url);
+    if (name) fd.append('name', name);
+
+    const res = await fetch('/bury', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.detail || 'Submission failed');
+    }
+    const { job_id } = await res.json();
+    pollJob(job_id);
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+async function pollJob(job_id) {
+  const interval = setInterval(async () => {
+    try {
+      const res  = await fetch(`/job/${job_id}`);
+      const data = await res.json();
+      msgEl.textContent = data.message || 'Working...';
+
+      if (data.status === 'done') {
+        clearInterval(interval);
+        progress.style.display = 'none';
+        doneEl.style.display = 'block';
+        linkEl.href = `/grave/${data.grave_slug}`;
+        linkEl.textContent = `→ Visit ${data.grave_slug}`;
+        btn.disabled = false;
+        btn.textContent = '⛏ Dig Up & Bury';
+        form.reset();
+        // Add card to grid
+        addTombstoneCard(data.grave_slug);
+      } else if (data.status === 'failed') {
+        clearInterval(interval);
+        showError(data.error || data.message || 'Dig failed.');
+      }
+    } catch (err) {
+      clearInterval(interval);
+      showError('Lost connection while digging.');
+    }
+  }, 2000);
+}
+
+function showError(msg) {
+  progress.style.display = 'none';
+  errorEl.style.display = 'block';
+  errorMsg.textContent = msg;
+  btn.disabled = false;
+  btn.textContent = '⛏ Dig Up & Bury';
+}
+
+async function addTombstoneCard(slug) {
+  // Refresh the page to show new grave
+  setTimeout(() => { window.location.reload(); }, 1500);
+}
+</script>
+{% endblock %}
