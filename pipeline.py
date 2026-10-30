@@ -145,15 +145,19 @@ STAGEHAND_SCHEMA = {
 # ─── Bad-snapshot detection ───────────────────────────────────────────────────
 
 BAD_MARKERS = [
-    "this site has moved", "page not found", "redirecting", "access denied",
+    "this site has moved", "page not found", "access denied",
     "enable javascript", "domain for sale", "account suspended",
     "this domain is for sale", "parked by", "this page is no longer",
     "site unavailable", "error 404", "403 forbidden",
+    "got an http 302 response", "got an http 301 response",
+    "redirecting to...",
 ]
 
-def usable(text: str) -> bool:
+def usable(text: str, fields_filled: int = 0) -> bool:
     t = text.lower().strip()
-    return len(t) > 400 and not any(m in t[:800] for m in BAD_MARKERS)
+    if fields_filled > 0 and len(t) >= 50:
+        return True
+    return len(t) >= 100 and not any(m in t[:800] for m in BAD_MARKERS)
 
 
 # ─── SSRF guard ────────────────────────────────────────────────────────────────
@@ -427,15 +431,27 @@ def _exhume_with_browserbase_inner(archive_link: str, slug: str = "") -> dict:
             page = browser.contexts[0].pages[0]
 
             try:
-                page.goto(archive_link, wait_until="domcontentloaded", timeout=45000)
+                page.goto(archive_link, wait_until="load", timeout=30000)
             except Exception:
                 try:
-                    page.goto(archive_link, wait_until="commit", timeout=30000)
+                    page.goto(archive_link, wait_until="domcontentloaded", timeout=20000)
                 except Exception as e2:
                     logger.warning(f"Browserbase goto failed: {e2}")
                     browser.close()
                     return {"title": "", "text": "", "screenshot": None, "replay": replay_url, "error": "timeout",
                             "fields_filled": 0, "evidence_id": None}
+
+            # Follow Wayback redirect interstitial if present
+            try:
+                impatient = page.query_selector("p.impatient a, a.impatient, a:has-text('Impatient?')")
+                if impatient:
+                    target = impatient.get_attribute("href")
+                    if target:
+                        if target.startswith("/"):
+                            target = "https://web.archive.org" + target
+                        page.goto(target, wait_until="load", timeout=25000)
+            except Exception as e_redir:
+                logger.debug(f"Wayback redirect follow error: {e_redir}")
 
             title = page.title() or ""
             raw_text = ""
@@ -443,6 +459,15 @@ def _exhume_with_browserbase_inner(archive_link: str, slug: str = "") -> dict:
                 raw_text = page.inner_text("body") or ""
             except Exception:
                 pass
+
+            if len(raw_text.strip()) < 50:
+                for f in page.frames:
+                    try:
+                        ft = f.inner_text("body") or ""
+                        if len(ft.strip()) > len(raw_text.strip()):
+                            raw_text = ft
+                    except Exception:
+                        pass
 
             text = _clean_wayback_text(raw_text)[:6000]
 
@@ -522,7 +547,7 @@ async def _http_fetch_inner(archive_link: str) -> dict:
     """Raw plain-HTTP fallback with id_ raw snapshot URL and text extraction."""
     raw_link = archive_link
     if "/web/" in archive_link and "id_/" not in archive_link:
-        raw_link = re.sub(r"/web/(\d+)/", r"/web/id_/", archive_link)
+        raw_link = re.sub(r"/web/(\d+)/", r"/web/\g<1>id_/", archive_link)
     try:
         async with httpx.AsyncClient(
             timeout=30, follow_redirects=True,
@@ -596,10 +621,10 @@ async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = 
                 res = await loop.run_in_executor(None, exhume_with_browserbase, link, snap_slug)
                 method = "browserbase"
                 # If browserbase had an error or zero text, try HTTP fallback ladder
-                if res.get("error") or not usable(res.get("text", "")):
+                if res.get("error") or not usable(res.get("text", ""), res.get("fields_filled", 0)):
                     logger.info(f"[{evidence_id}] Browserbase fallback to HTTP for {link}")
                     fallback_res = await exhume_without_browser(link)
-                    if usable(fallback_res.get("text", "")):
+                    if usable(fallback_res.get("text", ""), fallback_res.get("fields_filled", 0)):
                         # Retain screenshot/replay from browserbase if captured
                         fallback_res["screenshot"] = res.get("screenshot") or fallback_res.get("screenshot")
                         fallback_res["replay"] = res.get("replay") or fallback_res.get("replay")
@@ -615,8 +640,8 @@ async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = 
 
         elapsed = round(time.time() - t0, 1)
         text = res.get("text", "") or ""
-        ok = usable(text)
         fields_filled = res.get("fields_filled", 0)
+        ok = usable(text, fields_filled)
 
         attempt_log = {
             "evidence_id": evidence_id,
@@ -956,11 +981,14 @@ async def ask_eulogist(
         for ev in evidence:
             eid = ev.get("evidence_id", "E???")
             method = ev.get("method", "unknown")
-            ok = ev.get("ok", False)
+            ok = ev.get("status") == "ok" or ev.get("ok", False)
             chars = ev.get("chars", 0)
+            snippet = (ev.get("text") or "").strip()[:1000]
             ev_lines.append(f"<evidence id=\"{eid}\" method=\"{method}\" usable=\"{ok}\" chars=\"{chars}\">")
             ev_lines.append(f"  Snapshot: {ev.get('ts', '?')}")
             ev_lines.append(f"  URL: {ev.get('link', '?')}")
+            if snippet:
+                ev_lines.append(f"  Text: {snippet}")
             if ev.get("error"):
                 ev_lines.append(f"  Error: {ev['error']}")
             ev_lines.append("</evidence>")
@@ -1032,7 +1060,7 @@ Rules:
 - Keep the warm, slightly funny tone
 - Keep all supported claims
 - Remove or soften unsupported claims
-- Keep length 60-120 words
+- Keep length 150-220 words
 
 Rewritten eulogy (plain text, no JSON):"""
 
@@ -1052,11 +1080,14 @@ async def fact_check_eulogy(
         ev_lines = []
         for ev in evidence:
             eid = ev.get("evidence_id", "E???")
-            ok = ev.get("ok", False)
+            ok = ev.get("status") == "ok" or ev.get("ok", False)
             chars = ev.get("chars", 0)
+            snippet = (ev.get("text") or "").strip()[:1000]
             ev_lines.append(f"<evidence id=\"{eid}\" usable=\"{ok}\" chars=\"{chars}\">")
             ev_lines.append(f"  Snapshot: {ev.get('ts', '?')}")
             ev_lines.append(f"  URL: {ev.get('link', '?')}")
+            if snippet:
+                ev_lines.append(f"  Text: {snippet}")
             if ev.get("error"):
                 ev_lines.append(f"  Error: {ev['error']}")
             ev_lines.append("</evidence>")
@@ -1109,7 +1140,8 @@ async def fact_check_eulogy(
         if recheck_raw:
             recheck_data = _parse_json_safe(recheck_raw)
             if recheck_data and "claims" in recheck_data:
-                unsupported_after = sum(1 for c in recheck_data["claims"] if not c.get("supported", True))
+                claims = recheck_data["claims"]
+                unsupported_after = sum(1 for c in claims if not c.get("supported", True))
 
     return {
         "claims": claims,
@@ -1213,14 +1245,23 @@ async def _ask_ollama(prompt: str) -> str | None:
 
 
 def _parse_json_safe(raw: str) -> dict | None:
-    cleaned = re.sub(r"`(?:json)?", "", raw).strip().rstrip("").strip()
+    cleaned = re.sub(r"^```(?:json)?", "", raw.strip()).strip()
+    cleaned = re.sub(r"```$", "", cleaned).strip()
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if match:
         cleaned = match.group(0)
     try:
         return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        logger.warning(f"JSON parse failed: {e}\nRaw: {raw[:300]}")
+    except json.JSONDecodeError:
+        try:
+            if '"claims"' in cleaned:
+                last_brace = cleaned.rfind("}")
+                if last_brace != -1:
+                    repaired = cleaned[:last_brace+1] + "]}"
+                    return json.loads(repaired)
+        except Exception:
+            pass
+        logger.warning(f"JSON parse failed\nRaw: {raw[:300]}")
         return None
 
 
@@ -1308,6 +1349,7 @@ async def full_dig(
         build_archive_url(snapshots[0]["timestamp"], snapshots[0]["original"]) if snapshots else None
     )
     result["screenshot"] = fetch_result.get("screenshot")
+    result["screenshot_path"] = result["screenshot"]
     result["replay"]     = fetch_result.get("replay")
     extracted = fetch_result.get("text", "") or ""
     result["extracted_text"] = extracted

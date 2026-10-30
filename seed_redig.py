@@ -27,7 +27,7 @@ async def update_grave_from_result(grave: Grave, result: dict):
     grave.archive_url = result.get("archive_url")
     grave.first_archive_url = result.get("first_archive_url")
     grave.lifeline_json = result.get("lifeline_json")
-    grave.screenshot_path = result.get("screenshot_path") or grave.screenshot_path
+    grave.screenshot_path = result.get("screenshot") or result.get("screenshot_path") or grave.screenshot_path
     grave.replay_url = result.get("replay")
     grave.extracted_text = result.get("extracted_text")
     grave.exhume_attempts = result.get("exhume_attempts")

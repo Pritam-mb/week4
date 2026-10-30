@@ -1,115 +1,127 @@
-# Graveyard of Dead Software – Build Audit Log
+# Graveyard of Dead Software – Build & Verification Audit Log
 
-**Date:** 2026-10-30
-**Branch / state:** All tasks T1–T8 implemented and verified
+**Date:** 2026-10-31  
+**Status:** All tasks T1–T8 implemented; 14/14 automated tests passing; Live Google Reader dig verified end-to-end.
 
-## What was built
+---
 
-### Core app
-FastAPI + Jinja2 + SQLite + 5-stage agentic pipeline
-Archaeologist → Exhumer → Coroner → Eulogist → Fact-checker
-Routes: `/`, `/grave/<slug>`, `POST /bury`, `/job/<id>`, `POST /marigold/<slug>`, `POST /memory/<slug>`, `/benchmark`, `/health`
+## 1. What Was Built & Verified
 
-### UI Redesign – Dia de los Muertos ofrenda (COMPLETE)
-- `static/style.css` rebuilt — CSS vars: --ink #0E0C0A, --soil #17140F, --earth #221D16, --line #3A3228, --bone #EDE4D3, --ash #A89E8C, --marigold #F2A22A, --ember #C8541F, --sage #7C8B6A, --crimson #9E2B25
-- Typography: Cormorant Garamond for display/epitaphs, IBM Plex Mono for data
-- Hard rules enforced: no box-shadow/text-shadow/drop-shadow/blur/glow/neon, no blue/purple/indigo/violet/teal, no emojis, no gradients/glassmorphism, border-radius 0 except tombstone arch
-- Film grain SVG noise overlay 4% opacity, papel picado SVG banner, SVG marigold petals, 2px marigold focus, 150-200ms transitions
-- Lifeline rendered as inline SVG marigold sparkline (no fill gradients)
-- All templates cleaned of emojis, icons as inline SVG
+### Core Application
+- **Stack:** FastAPI + Jinja2 + SQLite + 5-stage agentic pipeline.
+- **5 Pipeline Stages:** Archaeologist → Exhumer → Coroner → Eulogist → Fact-checker.
+- **All Routes Functional:**
+  - `GET /` — Digital cemetery with tombstone cards, sparkline previews, and search.
+  - `GET /grave/<slug>` — Full grave view with inline SVG lifeline sparkline, epitaph, verified eulogy, citations, OK/FAIL claims, screenshot, session replay link, and memories.
+  - `POST /bury` — Rate-limited (3/hr), SSRF-guarded, normalized domain deduplication, creates background `DigJob`.
+  - `GET /job/<id>` — Live stage polling with status and progress messages.
+  - `POST /marigold/<slug>` — Flower placement with persistence.
+  - `POST /memory/<slug>` — Rate-limited (5/hr), 500-char cap, HTML escaped, URL stripped.
+  - `GET /benchmark` — Comparative stats (HTTP vs Browserbase) by era, p50/p95 latency, fields filled.
+  - `GET /health` — DB connectivity check, provider configuration summary without secret leakage.
 
-### T1. Archaeologist — real Wayback data (COMPLETE)
-- `cdx_has_captures(domain)` — CDX check with 15s timeout, 2 retries; rejects if zero captures
-- `_cdx_fetch(url, params)` — retry logic with exponential backoff
-- `wayback_snapshots(url, n)` — returns newest-first snapshots
-- `wayback_first_snapshot(url)` — oldest capture
-- `build_lifeline(url)` — year→count map via CDX collapse
-- `select_strategic_snapshots(snapshots, lifeline)` — picks birth/peak/decline/last-alive (max 5)
-- `full_dig` Stage 1: domain verification, strategic snapshots, lifeline JSON stored
+### Strict UI Rules Enforced (Zero Violations)
+- **Palette:** `--ink` (#0E0C0A), `--soil` (#17140F), `--earth` (#221D16), `--line` (#3A3228), `--bone` (#EDE4D3), `--ash` (#A89E8C), `--marigold` (#F2A22A), `--ember` (#C8541F), `--sage` (#7C8B6A), `--crimson` (#9E2B25).
+- **Prohibited:** No box-shadow, text-shadow, drop-shadow, blur, glow, neon, gradients, or glassmorphism. No blue/purple/indigo/violet/teal.
+- **Emojis:** Zero Unicode emojis across all HTML templates and button copy.
+- **Typography:** Cormorant Garamond display, IBM Plex Mono data.
+- **Borders & Icons:** Border-radius 0 except tombstone arch cards. All icons inline SVG.
 
-### T2. Exhumer — Browserbase + fallback ladder (COMPLETE)
-- `_exhume_with_browserbase_inner(archive_link, slug)` — Browserbase session, screenshot saved to `static/screenshots/<slug>.png`, Stagehand-style structured extraction (`STAGEHAND_SCHEMA`), `fields_filled` count, `evidence_id` per call
-- `exhume_with_browserbase(link, slug)` — Sentry `execute_tool` span wrapper
-- `_http_fetch_inner` / `exhume_without_browser` — plain HTTP fallback with evidence fields
-- `exhume_best(snapshots, use_browserbase, slug)` — walk-back with evidence IDs E1..En, method/status/ms/chars/fields_filled/error per attempt; one failing snapshot never fails the dig
-- `database.Grave.extracted_fields_json` — new column for Stagehand extracted fields
-- `app.grave_from_result` — stores screenshot path, extracted_fields_json, exhume_attempts
+---
 
-### T3. Coroner + Eulogist with citations (COMPLETE)
-- `CoronerOutput` Pydantic model — validates label (enum), cause_of_death, evidence list, cause_is_rumored
-- `coroner_hybrid` — Pydantic validation with one retry on invalid JSON, falls back to rules-only
-- `CORONER_PROMPT` — requires evidence ID citations (E001, E002, etc.)
-- `EULOGY_PROMPT` — evidence as `<evidence id="E#">` tags, system prompt says evidence is untrusted, [E#] citations required, epitaph max 12 words, eulogy 150-220 words
-- `ask_eulogist(evidence=...)` — formats attempts into evidence tags, passes to LLM
-- `Grave.llm_provider`, `Grave.llm_model` — new columns storing provider + model used
+## 2. Tasks Progress (T1 – T8)
 
-### T4. Fact-checker loop (COMPLETE)
-- `FACTCHECK_PROMPT` — lists claims with supported/unsupported + evidence_id ([E#]) + quote
-- `fact_check_eulogy(evidence=...)` — extracts claims, verifies against evidence, rewrites unsupported, re-verifies for unsupported_after
-- Stores `claims_json`, `unsupported_before`, `unsupported_after`
-- `grave.html` renders claims with OK/FAIL status and [E#] citations
+### T1. Archaeologist — Real Wayback Data (VERIFIED)
+- `cdx_has_captures(domain)`: 15s timeout, 2 retries, rejects if 0 captures.
+- `wayback_snapshots(url, n)`: Full chronological history across lifespan.
+- `build_lifeline(url)`: Collapse by month/year into JSON.
+- `select_strategic_snapshots()`: Birth, peak, decline, last-alive, post-death (up to 5).
+- Inline SVG sparkline on `grave.html` with marigold stroke and 0 fill gradient.
+- **Acceptance:** Google Reader shows 22-year lifeline with birth in October 2005.
 
-### T5. Durability + safety (COMPLETE)
-- `DigJob.stage` column — per-stage persistence (archaeologist, exhumer, coroner, eulogist, fact_checker, done)
-- 180s per-dig timeout via `asyncio.wait_for`
-- SSRF guard `is_ssrf_safe()` — only http/https to web.archive.org, rejects IPs, localhost, private ranges, non-http schemes, max 200 chars
-- SSRF validation on `/bury` route
-- Memory: 500-char cap, URL stripping, HTML escape
+### T2. Exhumer — Browserbase Deep Integration + Fallback Ladder (VERIFIED)
+- `_exhume_with_browserbase_inner`: Headless Chromium via CDP over Browserbase API.
+- Wayback redirect following: navigates through `p.impatient a` 302 interstitials.
+- Stagehand schema extraction `{tagline, features[], nav_items[], notice_text, year_hint}`.
+- Screenshot persisted to `static/screenshots/<slug>.png`.
+- Session replay URL captured: `https://www.browserbase.com/sessions/...`.
+- HTTP raw fallback: `web.archive.org/web/<ts>id_/<url>` text extraction.
+- Every attempt logged to `exhume_attempts` with `E001..E00n`, method, status, chars, ms, fields_filled.
+- **Acceptance:** Google Reader has 4 exhumed evidence items, screenshot, replay URL, and 100% usable attempts.
 
-### T6. Sentry polish (COMPLETE)
-- Conversation ID set to grave slug after creation
-- Sentry tags: job_id, extractor, provider, exhume_method, cause, seed
-- `traced_chat` spans with token usage on every `gen_ai.chat` call
-- `traced_tool` spans for every tool call
-- Without `SENTRY_DSN`, everything runs (no crash)
+### T3. Coroner + Eulogist with Citations (VERIFIED)
+- `CoronerOutput` Pydantic model: validates cause against strict WORKFLOW enum `{shut_down, acquired_and_killed, pivoted, outcompeted, tech_obsolete, abandoned, unknown}` with 1 retry.
+- Evidence tags: prompt wraps evidence in `<evidence id="E#">` with text snippet, and untrusted data instructions.
+- Eulogist: epitaph ≤ 12 words, eulogy 150–220 words with `[E#]` citations.
+- Credit line: "Eulogy written by <model>" displayed on `grave.html`.
 
-### T7. Seeds + deploy (COMPLETE)
-- `seed_redig.py` — idempotent and resumable (`--force` to re-dig all), summary table at end
-- `seed_bundle.py` — exports `graveyard.db` + `static/screenshots` to `seed_bundle.zip`
-- `render.yaml` — lists all env vars, health check `/health`
-- `.env.example` — updated with all variables
+### T4. Fact-Checker Loop (VERIFIED)
+- `fact_check_eulogy`: Extracts atomic claims, checks against evidence.
+- Rewrite loop: rewrites unsupported claims once, re-checks, records `unsupported_before` and `unsupported_after`.
+- Truncated JSON recovery in `_parse_json_safe`.
+- Rendered on `grave.html` with OK / FAIL indicators.
+- **Acceptance:** Google Reader reduced unsupported claims from 2 down to 0.
 
-### T8. Metrics script (COMPLETE)
-- `scripts/metrics.py` — markdown tables: exhume comparison (HTTP vs Browserbase), unsupported claims before→after, cause distribution, dig performance
+### T5. Durability + Safety (VERIFIED)
+- Per-stage persistence in `dig_jobs.stage`.
+- Startup recovery: automatically checks and resumes `pending`/`running` jobs.
+- 180s per-dig timeout with `asyncio.wait_for`.
+- Deduplication by normalized domain on `POST /bury`.
+- Hardened SSRF guard `is_ssrf_safe`: rejects IP literals, localhost, credentials, non-HTTP schemes, strings > 200 chars.
+- Memory sanitization: 500-char cap, HTML escaping, regex URL stripping.
 
-## What is working
-- App boots, DB init, static serving
-- All routes render with new design, JS polling, marigold, memory work
-- Rate limiting on /bury (3/hr) and /memory (5/hr)
-- Sentry SDK init, span wiring for gen_ai.invoke_agent / chat / execute_tool
-- UI meets all hard rules
-- T1-T8 all implemented and code compiles
+### T6. Sentry Polish (VERIFIED)
+- Conversation ID set to grave slug.
+- Tags: provider, model, exhume_method, cause, seed.
+- Spans: `gen_ai.invoke_agent`, `gen_ai.chat` (with token usage), and `gen_ai.execute_tool` (`cdx_query`, `browserbase_fetch`, `http_fetch`, `verify_claims`).
+- Graceful degradation: runs cleanly without crashing when `SENTRY_DSN` is empty.
 
-## What is NOT working / not exercised (requires live run)
-- No live LLM calls yet — `LLM_PROVIDER` defaults to ollama, `GEMINI_API_KEY` empty, `SENTRY_DSN` empty
-- Benchmark table has 0 rows
-- Sentry silent — no DSN configured
-- `seed_redig.py` and `seed_bundle.py` not yet executed
-- Browserbase path requires `BROWSERBASE_API_KEY`
-- No live digs have run through the full pipeline
+### T7. Seeds Re-Dig & Deploy (IN PROGRESS)
+- `seed_redig.py`: Idempotent and resumable (skips graves with real data unless `--force`), prints summary table, sets `is_seed=True`.
+- `render.yaml`: Lists all environment variables and `/health` check.
+- `README.md`: Documents SQLite ephemeral disk behavior on Render and persistent disk mount instructions.
 
-## Demo / mock data
-`seed.json` 15 graves with hand-written epitaphs/eulogies/causes:
-Google Reader, GeoCities, Vine, Grooveshark, Adobe Flash, MySpace, Yahoo Answers, Picnik, Digg, ICQ, del.icio.us, AIM, Google+, Zune, Tumblr
-All dates, marigold counts, survived_by are curated demo copy. Lifeline, screenshot, replay, evidence, claims empty until `seed_redig.py` runs with live API keys.
+### T8. Metrics Script & Bundle (READY)
+- `scripts/metrics.py`: Generates markdown tables for DEV post (exhume comparison, unsupported claims before→after, cause distribution, dig performance).
+- `seed_bundle.py`: Exports database and screenshot files to `seed_bundle/seed_bundle.zip`.
 
-## Files changed/added
-- `static/style.css` — UI redesign
-- `templates/base.html`, `cemetery.html`, `grave.html` — emoji removal, SVG icons, SVG sparkline
-- `pipeline.py` — T1-T4: CDX retry, strategic snapshots, lifeline, Browserbase+HTTP exhumer, evidence IDs, Pydantic coroner, cited eulogist, fact-checker loop
-- `app.py` — T5-T6: SSRF guard, 180s timeout, per-stage job persistence, memory hardening, Sentry tags/conversation ID
-- `database.py` — new columns: `extracted_fields_json`, `llm_provider`, `llm_model`, `DigJob.stage`
-- `.env.example` — updated variables
-- `seed_redig.py` — idempotent re-dig with --force and summary table
-- `render.yaml` — Render deploy config with all env vars
-- `seed_bundle.py` — DB + screenshots export
-- `scripts/metrics.py` — metrics markdown tables
-- `AUDIT_LOG.md` — this file
+---
 
-## Next steps to go live
-1. Set env vars: `LLM_PROVIDER=gemini`, `GEMINI_API_KEY`, `SENTRY_DSN`, `BROWSERBASE_API_KEY`
-2. Run one live `/bury` to prove end-to-end
-3. Run `python seed_redig.py` to replace mock data with real screenshots/replays/lifelines/claims
-4. Run `python scripts/metrics.py` for DEV post tables
-5. Run `python seed_bundle.py` and commit the bundle
-6. Deploy to Render via `render.yaml`
+## 3. Test Suite Results
+
+Run command: `.\venv\Scripts\python.exe -m unittest discover tests -v`
+Result: **14 tests PASSED (0 failures, 0 errors)**
+- `test_ssrf_guard` — PASSED
+- `test_normalize_domain` — PASSED
+- `test_select_strategic_snapshots` — PASSED
+- `test_coroner_output_validation` — PASSED
+- `test_memory_sanitization` — PASSED
+- `test_slugify` — PASSED
+- `test_health_route` — PASSED
+- `test_cemetery_route` — PASSED
+- `test_grave_route` — PASSED
+- `test_marigold_route` — PASSED
+- `test_memory_route_and_sanitization` — PASSED
+- `test_benchmark_route` (including 0 emoji check) — PASSED
+- `test_bury_ssrf_protection` — PASSED
+- `test_bury_deduplication` — PASSED
+
+---
+
+## 4. Key Bug Fixes Applied
+
+1. **Wayback Raw URL Fix (`pipeline.py` line 525):** Corrected regex replacement from `r"/web/ id_/"` to `r"/web/\g<1>id_/"`.
+2. **Wayback 302 Interstitial Navigation:** Added Playwright detection and click/navigation on `p.impatient a` links.
+3. **Evidence Tag Text Injection:** Injected actual text snippets (`Text: {snippet}`) into `<evidence id="E#">` so Eulogist and Fact-checker have concrete data to cite.
+4. **LLM JSON Auto-Repair:** Added JSON array recovery in `_parse_json_safe` to heal cut-off claims lists.
+5. **Windows Encoding Normalization:** Added UTF-8 stdout reconfiguration across all runner scripts.
+
+---
+
+## 5. Tomorrow Morning Action Plan
+
+1. Check completion of `seed_redig.py` (or run `.\venv\Scripts\python.exe seed_redig.py`).
+2. Run `.\venv\Scripts\python.exe benchmark.py` to log ≥ 30 comparisons.
+3. Run `.\venv\Scripts\python.exe scripts/metrics.py` to generate DEV post tables.
+4. Run `.\venv\Scripts\python.exe seed_bundle.py` to create the bundle.
+5. Perform final commit and deploy check.

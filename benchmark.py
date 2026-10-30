@@ -10,6 +10,11 @@ import json
 import time
 import logging
 import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -74,10 +79,10 @@ async def run_benchmark():
                     res = await loop.run_in_executor(None, exhume_with_browserbase, archive_link)
 
                 text = res.get("text", "") or ""
-                ok   = usable(text)
+                fields_filled = res.get("fields_filled", 0)
+                ok   = usable(text, fields_filled)
                 chars = len(text)
                 err  = res.get("error") or ""
-                fields_filled = res.get("fields_filled", 0)
             except Exception as e:
                 ok, chars, err = False, 0, type(e).__name__
 

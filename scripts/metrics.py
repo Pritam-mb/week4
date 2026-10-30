@@ -6,6 +6,12 @@ avg tokens and seconds per dig.
 Usage:
   python scripts/metrics.py
 """
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 import asyncio
 import json
 from collections import Counter

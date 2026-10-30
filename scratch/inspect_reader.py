@@ -24,6 +24,6 @@ if row:
     print("Evidence used:", data.get("cause_evidence"))
     print("Claims:", data.get("factcheck_claims"))
     print(f"Unsupported: before={data.get('unsupported_before')}, after={data.get('unsupported_after')}")
-    print("Screenshot:", data.get("screenshot_url"))
-    print("Replay:", data.get("session_replay_url"))
+    print("Screenshot:", data.get("screenshot_path"))
+    print("Replay:", data.get("replay_url"))
     print("Provider/Model:", data.get("llm_provider"), "/", data.get("llm_model"))
