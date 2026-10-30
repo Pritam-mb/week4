@@ -102,7 +102,8 @@ async def grave_from_result(result: dict, db: AsyncSession, name: str, url: str)
         slug = f"{slug_base}-{counter}"
         counter += 1
 
-    screenshot_path = await save_screenshot(result.get("screenshot"), slug)
+    # screenshot already saved to static/screenshots/<slug>.png by pipeline; use path directly
+    screenshot_path = result.get("screenshot")
 
     grave = Grave(
         slug=slug,
@@ -116,6 +117,7 @@ async def grave_from_result(result: dict, db: AsyncSession, name: str, url: str)
         screenshot_path=screenshot_path,
         replay_url=result.get("replay"),
         extracted_text=result.get("extracted_text"),
+        extracted_fields_json=json.dumps(result.get("extracted_fields")) if result.get("extracted_fields") else None,
         exhume_attempts=result.get("exhume_attempts"),
         epitaph=result.get("epitaph"),
         eulogy=result.get("eulogy"),
@@ -129,6 +131,8 @@ async def grave_from_result(result: dict, db: AsyncSession, name: str, url: str)
         unsupported_before=result.get("unsupported_before"),
         unsupported_after=result.get("unsupported_after"),
         dig_status=result.get("dig_status", "done"),
+        llm_provider=result.get("llm_provider"),
+        llm_model=result.get("llm_model"),
         is_seed=False,
     )
     db.add(grave)

@@ -42,6 +42,7 @@ class Grave(Base):
     screenshot_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     replay_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extracted_fields_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Exhumer walk-back attempts log -- JSON list of attempt dicts
     exhume_attempts: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -67,6 +68,8 @@ class Grave(Base):
     # Meta
     marigolds: Mapped[int] = mapped_column(Integer, default=0)
     is_seed: Mapped[bool] = mapped_column(Boolean, default=False)
+    llm_provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    llm_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     dig_status: Mapped[str] = mapped_column(String(50), default="done")
 
