@@ -83,6 +83,7 @@ class DigJob(Base):
     message: Mapped[str] = mapped_column(String(500), default="Queued...")
     grave_slug: Mapped[str | None] = mapped_column(String(200), nullable=True)
     error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    stage: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -104,6 +105,24 @@ class BenchmarkResult(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        def _migrate(connection):
+            from sqlalchemy import text
+            res = connection.execute(text('PRAGMA table_info(graves)')).fetchall()
+            cols = {r[1] for r in res}
+            if 'extracted_fields_json' not in cols:
+                connection.execute(text('ALTER TABLE graves ADD COLUMN extracted_fields_json TEXT'))
+            if 'llm_provider' not in cols:
+                connection.execute(text('ALTER TABLE graves ADD COLUMN llm_provider VARCHAR(50)'))
+            if 'llm_model' not in cols:
+                connection.execute(text('ALTER TABLE graves ADD COLUMN llm_model VARCHAR(100)'))
+
+            res_jobs = connection.execute(text('PRAGMA table_info(dig_jobs)')).fetchall()
+            cols_jobs = {r[1] for r in res_jobs}
+            if 'stage' not in cols_jobs:
+                connection.execute(text('ALTER TABLE dig_jobs ADD COLUMN stage VARCHAR(50)'))
+
+        await conn.run_sync(_migrate)
 
 
 async def get_db():

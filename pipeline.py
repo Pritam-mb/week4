@@ -144,7 +144,42 @@ def usable(text: str) -> bool:
     return len(t) > 400 and not any(m in t[:800] for m in BAD_MARKERS)
 
 
-# ─── Stage 1: Archaeologist — Wayback CDX ─────────────────────────────────────
+# ─── SSRF guard ────────────────────────────────────────────────────────────────
+
+import ipaddress
+from urllib.parse import urlparse
+
+
+def is_ssrf_safe(url: str) -> bool:
+    """
+    SSRF guard: only allow http/https to web.archive.org, reject IPs, localhost,
+    private ranges, and non-http schemes. Max 200 chars.
+    """
+    if len(url) > 200:
+        return False
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = parsed.hostname or ""
+    if not host:
+        return False
+    host_lower = host.lower()
+    # Only archive.org / web.archive.org allowed
+    if not (host_lower == "web.archive.org" or host_lower.endswith(".web.archive.org")):
+        return False
+    # Reject IP literals
+    try:
+        ip = ipaddress.ip_address(host_lower)
+        return False  # IP literal rejected
+    except ValueError:
+        pass
+    # Reject localhost / private hostnames
+    if host_lower in ("localhost", "127.0.0.1", "::1"):
+        return False
+    return True
 
 CDX_BASE = "https://web.archive.org/cdx/search/cdx"
 WAYBACK_TIMEOUT = 15.0
@@ -602,9 +637,9 @@ Rule signals already detected:
 {signals}
 
 Last page text (first 2000 chars):
-"""
+\"\"\"
 {text}
-"""
+\"\"\"
 
 Based ONLY on the evidence above, determine the most likely cause of death.
 You MUST cite which signal(s) you used by referencing their evidence IDs (e.g., E001, E002).
@@ -693,9 +728,9 @@ Evidence (cite with [E#] tags):
 {evidence}
 
 Extracted text from last archived page:
-"""
+\"\"\"
 {text}
-"""
+\"\"\"
 
 Write a JSON object with these fields:
 - epitaph: one memorable line, like a gravestone inscription (max 12 words)
@@ -762,6 +797,10 @@ FACTCHECK_PROMPT = """SOURCE (page text and metadata):
 Name: {name}
 First archived: {first_archived}
 Last seen alive: {last_seen_alive}
+
+Evidence captured (cite with [E#]):
+{evidence}
+
 Page text:
 \"\"\"
 {text}
@@ -772,11 +811,10 @@ EULOGY:
 {eulogy}
 \"\"\"
 
-Task: List every factual claim in the eulogy. For each, mark SUPPORTED or UNSUPPORTED
-and quote the source text that supports it (or leave quote empty if unsupported).
+Task: List every factual claim in the eulogy. For each claim, determine if it is SUPPORTED or UNSUPPORTED by the evidence above. Include an evidence_id ([E#]) for supported claims, or leave empty if unsupported.
 
 Return JSON only — no other text:
-{{"claims":[{{"claim":"...","supported":true,"quote":"..."}}]}}
+{{"claims":[{{"claim":"...","supported":true,"evidence_id":"E001","quote":"..."}}]}}
 
 JSON:"""
 
@@ -798,25 +836,43 @@ Rules:
 
 Rewritten eulogy (plain text, no JSON):"""
 
-
 async def fact_check_eulogy(
     name: str, first_archived: str, last_seen_alive: str,
-    text: str, eulogy: str,
+    text: str, eulogy: str, evidence: list[dict] | None = None,
 ) -> dict:
     """
     Returns:
       - claims: list of dicts
       - eulogy_verified: rewritten eulogy
       - unsupported_before: count
-      - unsupported_after: count (should be 0 after rewrite)
+      - unsupported_after: count (after rewrite, re-verified)
     """
+    # Build evidence block for fact-checker
+    if evidence:
+        ev_lines = []
+        for ev in evidence:
+            eid = ev.get("evidence_id", "E???")
+            ok = ev.get("ok", False)
+            chars = ev.get("chars", 0)
+            ev_lines.append(f"<evidence id=\"{eid}\" usable=\"{ok}\" chars=\"{chars}\">")
+            ev_lines.append(f"  Snapshot: {ev.get('ts', '?')}")
+            ev_lines.append(f"  URL: {ev.get('link', '?')}")
+            if ev.get("error"):
+                ev_lines.append(f"  Error: {ev['error']}")
+            ev_lines.append("</evidence>")
+        evidence_text = "\n".join(ev_lines)
+    else:
+        evidence_text = "<evidence id=\"E000\" usable=\"false\" chars=\"0\">No usable evidence captured.</evidence>"
+
     prompt = FACTCHECK_PROMPT.format(
         name=name,
         first_archived=first_archived or "unknown",
         last_seen_alive=last_seen_alive or "unknown",
+        evidence=evidence_text,
         text=text[:3000] if text else "(no text)",
         eulogy=eulogy,
     )
+
     raw = await _call_llm(prompt, max_tokens=1000, temperature=0.2, stage="checker")
     claims = []
     if raw:
@@ -838,11 +894,28 @@ async def fact_check_eulogy(
         if rewritten and len(rewritten.strip()) > 30:
             eulogy_verified = rewritten.strip()
 
+    # Re-verify the rewritten eulogy against evidence to compute unsupported_after
+    unsupported_after = 0
+    if unsupported_before > 0 and eulogy_verified != eulogy:
+        recheck_prompt = FACTCHECK_PROMPT.format(
+            name=name,
+            first_archived=first_archived or "unknown",
+            last_seen_alive=last_seen_alive or "unknown",
+            evidence=evidence_text,
+            text=text[:3000] if text else "(no text)",
+            eulogy=eulogy_verified,
+        )
+        recheck_raw = await _call_llm(recheck_prompt, max_tokens=1000, temperature=0.2, stage="checker")
+        if recheck_raw:
+            recheck_data = _parse_json_safe(recheck_raw)
+            if recheck_data and "claims" in recheck_data:
+                unsupported_after = sum(1 for c in recheck_data["claims"] if not c.get("supported", True))
+
     return {
         "claims": claims,
         "eulogy_verified": eulogy_verified,
         "unsupported_before": unsupported_before,
-        "unsupported_after": 0,  # after rewrite we assume clean; manual spot-check is separate
+        "unsupported_after": unsupported_after,
     }
 
 
@@ -1084,6 +1157,7 @@ async def full_dig(
             last_seen_alive=result["last_seen_alive"] or "unknown",
             text=extracted,
             eulogy=result["eulogy"],
+            evidence=attempts,
         )
         result["eulogy_verified"]    = fc["eulogy_verified"]
         result["claims_json"]        = json.dumps(fc["claims"])

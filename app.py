@@ -5,6 +5,7 @@ FastAPI application with Sentry tracing, rate limiting, and all routes.
 
 import os
 import json
+import re
 import uuid
 import asyncio
 import logging
@@ -38,7 +39,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from database import init_db, get_db, Grave, DigJob, BenchmarkResult, AsyncSessionLocal
-from pipeline import full_dig
+from pipeline import full_dig, is_ssrf_safe, LLM_PROVIDER
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -153,6 +154,7 @@ async def run_dig_job(job_id: str, url: str, name: str, use_browserbase: bool = 
             return
         j.status = "running"
         j.message = "Starting dig..."
+        j.stage = "archaeologist"
         await db.commit()
 
     # Set Sentry AI conversation ID
@@ -168,6 +170,19 @@ async def run_dig_job(job_id: str, url: str, name: str, use_browserbase: bool = 
             j = await db.get(DigJob, job_id)
             if j:
                 j.message = msg
+                # Track current stage from message prefix
+                if msg.startswith("🔍"):
+                    j.stage = "archaeologist"
+                elif msg.startswith("⚰️"):
+                    j.stage = "exhumer"
+                elif msg.startswith("🔬"):
+                    j.stage = "coroner"
+                elif msg.startswith("✍️"):
+                    j.stage = "eulogist"
+                elif msg.startswith("🔎"):
+                    j.stage = "fact_checker"
+                elif msg.startswith("✅"):
+                    j.stage = "done"
                 await db.commit()
 
     async def _do_dig():
@@ -175,6 +190,7 @@ async def run_dig_job(job_id: str, url: str, name: str, use_browserbase: bool = 
                               status_callback=update_job)
 
     try:
+        # 180s per-dig timeout
         if SENTRY_DSN:
             with sentry_sdk.start_span(
                 op="gen_ai.invoke_agent",
@@ -187,12 +203,16 @@ async def run_dig_job(job_id: str, url: str, name: str, use_browserbase: bool = 
             ) as root_span:
                 root_span.set_tag("job_id", job_id)
                 root_span.set_tag("extractor", "browserbase" if use_browserbase else "http")
-                result = await _do_dig()
+                root_span.set_tag("provider", LLM_PROVIDER)
+                root_span.set_tag("exhume_method", "browserbase" if use_browserbase else "http")
+                result = await asyncio.wait_for(_do_dig(), timeout=180)
                 attempts = json.loads(result.get("exhume_attempts") or "[]")
                 root_span.set_tag("walkback_count", max(0, len(attempts) - 1))
                 root_span.set_tag("cause_label", result.get("cause_label") or "unknown")
+                root_span.set_tag("cause", result.get("cause_label") or "unknown")
+                root_span.set_tag("seed", "false")
         else:
-            result = await _do_dig()
+            result = await asyncio.wait_for(_do_dig(), timeout=180)
 
         async with AsyncSessionLocal() as db:
             grave = await grave_from_result(result, db, name, url)
@@ -202,6 +222,14 @@ async def run_dig_job(job_id: str, url: str, name: str, use_browserbase: bool = 
                 j.message = "✅ Grave is ready."
                 j.grave_slug = grave.slug
                 await db.commit()
+
+        # Set Sentry conversation ID to slug after grave is created
+        if SENTRY_DSN:
+            try:
+                import sentry_sdk.ai
+                sentry_sdk.ai.set_conversation_id(grave.slug)
+            except Exception:
+                pass
 
     except Exception as exc:
         logger.error(f"Dig job {job_id} failed: {exc}", exc_info=True)
@@ -240,6 +268,8 @@ async def bury(
     name = name.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
+    if not is_ssrf_safe(url):
+        raise HTTPException(status_code=400, detail="URL not allowed: only web.archive.org is permitted")
 
     # Already buried?
     existing = await db.execute(select(Grave).where(Grave.url == url))
@@ -343,7 +373,11 @@ async def leave_memory(
     text: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    text = text.strip()[:140]
+    text = text.strip()[:500]
+    if not text:
+        raise HTTPException(status_code=400, detail="Memory cannot be empty")
+    # Strip URLs to prevent link spam
+    text = re.sub(r'https?://\S+', '', text).strip()
     if not text:
         raise HTTPException(status_code=400, detail="Memory cannot be empty")
     text = html_lib.escape(text)

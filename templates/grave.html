@@ -211,7 +211,8 @@
         <div class="claim-item {{ "claim-ok" if c.supported else "claim-bad" }}">
           <span class="claim-status">{{ "OK" if c.supported else "FAIL" }}</span>
           <div>
-            <div class="claim-text">{{ c.claim }}</div>
+            <div class="claim-text">{{ c.claim }} {% if c.evidence_id %}[{{ c.evidenc
+e_id }}]{% endif %}</div>
             {% if c.quote %}
             <div class="claim-quote">Source: "{{ c.quote }}"</div>
             {% endif %}
