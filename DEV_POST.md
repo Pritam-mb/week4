@@ -1,3 +1,11 @@
+---
+title: "Graveyard of Dead Software: An Autonomous Agent Exhuming the Internet That Was"
+published: false
+description: "A 5-stage AI agent that exhumes dead software from the Wayback Machine, classifies cause of death, writes eulogies with Gemma, and fact-checks itself before burial."
+tags: hacktoberfest, gemma, render, browserbase, sentry
+cover_image: https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/geocities.png
+---
+
 *This is a submission for the [Hacktoberfest Open-Source AI Challenge Week 4: Ghost in the Machine](https://dev.to/challenges/hacktoberfest-week4-2026-10-26)*
 
 # Graveyard of Dead Software: An Autonomous Agent Exhuming the Internet That Was
@@ -100,7 +108,7 @@ The Coroner determines how and why the software died.
   `{shut_down_by_owner, acquired_then_shut_down, abandoned, taken_over_or_redirected, unknown}`.
 - **Honesty Guard:** If evidence is thin or no shutdown notice is found in the archive, the Coroner is forced to output `unknown` with low confidence ($\le 0.3$).
 
-#### Step 4: The Eulogist (Gemma Dia de los Muertos Memorial)
+#### Step 4: The Eulogist (Gemma Día de los Muertos Memorial)
 Gemma composes a memorable 12-word epitaph and a 150–220 word eulogy. Every factual claim is required to cite its supporting evidence token `[E001]`..`[E00n]`.
 - If evidence is thin (<600 characters recovered), the UI flags an **"Archival evidence is thin"** notice, and the model is instructed to write a brief, honest remembrance rather than inventing corporate drama.
 
@@ -124,7 +132,7 @@ When hammering Archive.org without proper rate-limiting, the Wayback Machine ser
 
 In our early runs, because the page returned with an HTML body, our parser ingested this text as the software's real content! The LLM dutifully analyzed this text and composed poetic eulogies about *"automated sentinels guarding blocked requests"* and classified Google Reader's cause of death as a *"cyber defense lockout."*
 
-To permanently defeat this, we engineered a three-tiered **Block-Page Defense** in `pipeline.py`:
+To permanently defeat this, we engineered a four-tiered **Block-Page Defense** in `pipeline.py`:
 1. **HTTP 200 Hard Requirement:** Any non-200 HTTP response is rejected immediately.
 2. **Phrase-Blacklist Defense:** Scans for 8 bot-block signatures: `suspected abusive bot traffic`, `overloading our systems`, `too many requests`, `service temporarily unavailable`, etc.
 3. **Body Hash Uniqueness:** Maintains a `seen_hashes` set per dig. If multiple snapshots return identical HTML bodies, they are discarded as generic server tombstones.
@@ -237,7 +245,7 @@ We are entering Graveyard of Dead Software into the following Hacktoberfest Week
 
 - **Overall "Ghost in the Machine" Theme:** An end-to-end 5-stage agent that resurrects dead software from the archives of the web.
 - **Gemma Category ($200):** Built from the ground up around Google’s open-weight `gemma-4-26b-a4b-it` model for forensic analysis, Día de los Muertos eulogy generation, and self-correcting fact-checking.
-- **Render Category ($200):** Fully containerized web service deployed via [`render.yaml`](https://github.com/Pritam-mb/week4/blob/main/render.yaml) with automatic health probes, static assets caching, and persistent seed-bundle safeguards.
+- **Render Category ($200):** Fully containerized web service deployed via [`render.yaml`](https://github.com/Pritam-mb/week4/blob/main/render.yaml) with automatic health probes, static assets caching, and persistent seed-bundle safeguards. *(Note: Render Free Tier instances use ephemeral storage; on paid plans with Persistent Disks, `graveyard.db` persists across restarts).*
 - **Browserbase Category ($100):** Headless Chromium replay session recording, Stagehand DOM schema extraction, full-page screenshot generation, and a paired 58-attempt benchmark against raw HTTP.
 - **Sentry Category ($100):** End-to-end OpenTelemetry GenAI agent tracing, tracking hierarchical `gen_ai.invoke_agent` → `gen_ai.chat` → `gen_ai.execute_tool` spans with token accounting and error handling.
 - **.tech Domain Category ($100):** Ready for custom domain routing on `.tech`.
