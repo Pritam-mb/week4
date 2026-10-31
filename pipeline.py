@@ -200,7 +200,7 @@ def is_ssrf_safe(url: str) -> bool:
         return False
     return True
 
-CDX_BASE = "https://web.archive.org/cdx/search/cdx"
+CDX_BASE = "http://web.archive.org/cdx/search/cdx"
 WAYBACK_TIMEOUT = 15.0
 WAYBACK_RETRIES = 2
 
@@ -208,9 +208,12 @@ WAYBACK_RETRIES = 2
 async def _cdx_fetch_inner(url: str, params: dict) -> list:
     """Fetch CDX with 15s timeout and 2 retries. Returns raw rows (excluding header)."""
     last_err = None
-    for attempt in range(WAYBACK_RETRIES + 1):
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    timeout = 6.0 if params.get("collapse") else WAYBACK_TIMEOUT
+    max_retries = 0 if params.get("collapse") else WAYBACK_RETRIES
+    for attempt in range(max_retries + 1):
         try:
-            async with httpx.AsyncClient(timeout=WAYBACK_TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
                 r = await client.get(CDX_BASE, params=params)
                 r.raise_for_status()
                 data = r.json()
@@ -219,9 +222,10 @@ async def _cdx_fetch_inner(url: str, params: dict) -> list:
         except Exception as e:
             last_err = e
             logger.warning(f"CDX attempt {attempt+1} failed for {url}: {e}")
-            if attempt < WAYBACK_RETRIES:
-                await asyncio.sleep(0.5 * (attempt + 1))
-    logger.error(f"CDX failed after {WAYBACK_RETRIES + 1} attempts for {url}: {last_err}")
+            if attempt < max_retries:
+                await asyncio.sleep(1.0 * (attempt + 1))
+    if not params.get("collapse"):
+        logger.error(f"CDX failed after {max_retries + 1} attempts for {url}: {last_err}")
     return []
 
 
@@ -231,7 +235,7 @@ async def _cdx_fetch(url: str, params: dict) -> list:
 
 async def cdx_has_captures(domain_or_url: str) -> bool:
     """Return True if the CDX index has at least one capture for this URL/domain."""
-    clean = re.sub(r"^https?://", "", domain_or_url.strip()).rstrip("/")
+    clean = re.sub(r"^https?://(?:www\.)?", "", domain_or_url.strip()).rstrip("/")
     rows = await _cdx_fetch(clean, {
         "url": clean, "output": "json",
         "fl": "timestamp,statuscode", "limit": "1",
@@ -248,7 +252,7 @@ async def cdx_has_captures(domain_or_url: str) -> bool:
 
 async def wayback_snapshots(url: str, n: int = 500) -> list[dict]:
     """Return snapshots across full archive history, oldest first."""
-    clean = re.sub(r"^https?://", "", url.strip()).rstrip("/")
+    clean = re.sub(r"^https?://(?:www\.)?", "", url.strip()).rstrip("/")
     rows = await _cdx_fetch(clean, {
         "url": clean, "output": "json",
         "fl": "timestamp,original,statuscode",
@@ -256,17 +260,25 @@ async def wayback_snapshots(url: str, n: int = 500) -> list[dict]:
         "filter": "!statuscode:[45]..",
     })
     if not rows:
-        rows = await _cdx_fetch(clean, {
+        # Fallback for huge domains where server-side collapse times out (e.g. geocities)
+        old_rows = await _cdx_fetch(clean, {
             "url": clean, "output": "json",
             "fl": "timestamp,original,statuscode",
-            "collapse": "timestamp:6",
+            "limit": "200",
         })
-    return [{"timestamp": row[0], "original": row[1], "statuscode": row[2] if len(row) > 2 else "200"} for row in rows[:n]]
+        new_rows = await _cdx_fetch(clean, {
+            "url": clean, "output": "json",
+            "fl": "timestamp,original,statuscode",
+            "limit": "-100",
+        })
+        rows = old_rows + new_rows
+    filtered = [r for r in rows if len(r) <= 2 or not str(r[2]).startswith(('4', '5'))]
+    return [{"timestamp": row[0], "original": row[1], "statuscode": row[2] if len(row) > 2 else "200"} for row in filtered[:n]]
 
 
 async def wayback_first_snapshot(url: str) -> dict | None:
     """Return the very first snapshot (oldest capture)."""
-    clean = re.sub(r"^https?://", "", url.strip()).rstrip("/")
+    clean = re.sub(r"^https?://(?:www\.)?", "", url.strip()).rstrip("/")
     rows = await _cdx_fetch(clean, {
         "url": clean, "output": "json", "limit": "1",
         "fl": "timestamp,original",
@@ -282,7 +294,7 @@ async def build_lifeline(url: str) -> dict:
     Build a year->count map of archive activity using CDX collapse.
     Returns e.g. {"2005": 3, "2006": 11, ..., "2013": 7}
     """
-    clean = re.sub(r"^https?://", "", url.strip()).rstrip("/")
+    clean = re.sub(r"^https?://(?:www\.)?", "", url.strip()).rstrip("/")
     rows = await _cdx_fetch(clean, {
         "url": clean, "output": "json",
         "fl": "timestamp,statuscode",
@@ -290,11 +302,17 @@ async def build_lifeline(url: str) -> dict:
         "filter": "!statuscode:[45]..",
     })
     if not rows:
-        rows = await _cdx_fetch(clean, {
+        old_rows = await _cdx_fetch(clean, {
             "url": clean, "output": "json",
             "fl": "timestamp,statuscode",
-            "collapse": "timestamp:6",
+            "limit": "200",
         })
+        new_rows = await _cdx_fetch(clean, {
+            "url": clean, "output": "json",
+            "fl": "timestamp,statuscode",
+            "limit": "-100",
+        })
+        rows = old_rows + new_rows
     by_year: dict[str, int] = {}
     for row in rows:
         ts = row[0]
@@ -422,7 +440,7 @@ def _exhume_with_browserbase_inner(archive_link: str, slug: str = "") -> dict:
         from browserbase import Browserbase
         from playwright.sync_api import sync_playwright
 
-        bb = Browserbase(api_key=BROWSERBASE_API_KEY)
+        bb = Browserbase(api_key=BROWSERBASE_API_KEY, max_retries=0)
         session = bb.sessions.create()
         replay_url = f"https://www.browserbase.com/sessions/{session.id}"
 
@@ -551,9 +569,15 @@ async def _http_fetch_inner(archive_link: str) -> dict:
     try:
         async with httpx.AsyncClient(
             timeout=30, follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; GraveyardBot/1.0)"}
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
         ) as client:
-            r = await client.get(raw_link)
+            try:
+                r = await client.get(raw_link)
+            except Exception:
+                if raw_link.startswith("https://web.archive.org/"):
+                    r = await client.get("http://" + raw_link[8:])
+                else:
+                    raise
             html = r.text
             text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.DOTALL | re.IGNORECASE)
             text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.DOTALL | re.IGNORECASE)

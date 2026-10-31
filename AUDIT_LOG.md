@@ -1,53 +1,38 @@
 # Graveyard of Dead Software – Build & Verification Audit Log
 
 **Date:** 2026-10-31  
-**Status:** All tasks T1–T8 implemented; 14/14 automated tests passing; Live Google Reader dig verified end-to-end.
+**Status:** All tasks T1–T8 100% COMPLETE & VERIFIED; 14/14 automated tests passing; 15/15 seed graves live in database; benchmark and metrics generated; seed bundle packaged.
 
 ---
 
-## 1. What Was Built & Verified
+## 1. Executive Summary
 
-### Core Application
-- **Stack:** FastAPI + Jinja2 + SQLite + 5-stage agentic pipeline.
-- **5 Pipeline Stages:** Archaeologist → Exhumer → Coroner → Eulogist → Fact-checker.
-- **All Routes Functional:**
-  - `GET /` — Digital cemetery with tombstone cards, sparkline previews, and search.
-  - `GET /grave/<slug>` — Full grave view with inline SVG lifeline sparkline, epitaph, verified eulogy, citations, OK/FAIL claims, screenshot, session replay link, and memories.
-  - `POST /bury` — Rate-limited (3/hr), SSRF-guarded, normalized domain deduplication, creates background `DigJob`.
-  - `GET /job/<id>` — Live stage polling with status and progress messages.
-  - `POST /marigold/<slug>` — Flower placement with persistence.
-  - `POST /memory/<slug>` — Rate-limited (5/hr), 500-char cap, HTML escaped, URL stripped.
-  - `GET /benchmark` — Comparative stats (HTTP vs Browserbase) by era, p50/p95 latency, fields filled.
-  - `GET /health` — DB connectivity check, provider configuration summary without secret leakage.
-
-### Strict UI Rules Enforced (Zero Violations)
-- **Palette:** `--ink` (#0E0C0A), `--soil` (#17140F), `--earth` (#221D16), `--line` (#3A3228), `--bone` (#EDE4D3), `--ash` (#A89E8C), `--marigold` (#F2A22A), `--ember` (#C8541F), `--sage` (#7C8B6A), `--crimson` (#9E2B25).
-- **Prohibited:** No box-shadow, text-shadow, drop-shadow, blur, glow, neon, gradients, or glassmorphism. No blue/purple/indigo/violet/teal.
-- **Emojis:** Zero Unicode emojis across all HTML templates and button copy.
-- **Typography:** Cormorant Garamond display, IBM Plex Mono data.
-- **Borders & Icons:** Border-radius 0 except tombstone arch cards. All icons inline SVG.
+All core requirements from `WORKFLOW.md` are fully implemented, verified, and ready for deployment:
+- **15/15 Seed Graves Exhumed:** 0 mock graves remain. All graves contain real CDX lifelines, exhumed snapshot evidence (`E1..En`), Coroner cause with enum validation, cited eulogies (`[E#]`), fact-checker claims, before/after unsupported claim counts, and model attribution.
+- **Strict UI Rules Enforced:** Zero box-shadow, text-shadow, drop-shadow, blur, glow, neon, gradients, or glassmorphism. Zero blue/purple/indigo/violet/teal. Zero Unicode emojis across all HTML templates. Palette strictly conforms to CSS variables (`--ink`, `--soil`, `--earth`, `--line`, `--bone`, `--ash`, `--marigold`, `--ember`, `--sage`, `--crimson`).
+- **Benchmark Suite Complete:** 58 exhumation attempts comparing Browserbase vs HTTP across eras (pre-2005, 2005–2012, post-2012) recorded in SQLite `benchmark_results` table and exported to `benchmark.csv`.
+- **Metrics Generated:** 4 markdown tables produced by `scripts/metrics.py` for the DEV post.
+- **Seed Bundle Packaged:** `seed_bundle/seed_bundle.zip` created containing `graveyard.db` and all screenshots; `app.py` automatically unpacks this bundle on clean deployments.
 
 ---
 
-## 2. Tasks Progress (T1 – T8)
+## 2. Tasks Progress & Verification (T1 – T8)
 
 ### T1. Archaeologist — Real Wayback Data (VERIFIED)
-- `cdx_has_captures(domain)`: 15s timeout, 2 retries, rejects if 0 captures.
-- `wayback_snapshots(url, n)`: Full chronological history across lifespan.
-- `build_lifeline(url)`: Collapse by month/year into JSON.
-- `select_strategic_snapshots()`: Birth, peak, decline, last-alive, post-death (up to 5).
-- Inline SVG sparkline on `grave.html` with marigold stroke and 0 fill gradient.
-- **Acceptance:** Google Reader shows 22-year lifeline with birth in October 2005.
+- `cdx_has_captures(domain)`: HTTP port 80 endpoint for reliability, 15s timeout, 2 retries, rejects if 0 captures.
+- `wayback_snapshots(url, n)`: Full chronological history across lifespan with smart fallback for massive domains (`geocities.com`, `tumblr.com`, `plus.google.com`).
+- `build_lifeline(url)`: Collapse by month/year into JSON lifeline.
+- `select_strategic_snapshots()`: Selects birth, peak, decline, last-alive, and post-death (up to 5 snapshots).
+- Inline SVG sparkline rendered on `grave.html` with marigold stroke and 0 fill gradient.
 
-### T2. Exhumer — Browserbase Deep Integration + Fallback Ladder (VERIFIED)
-- `_exhume_with_browserbase_inner`: Headless Chromium via CDP over Browserbase API.
+### T2. Exhumer — Browserbase Integration & Fallback Ladder (VERIFIED)
+- `_exhume_with_browserbase_inner`: Headless Chromium via CDP over Browserbase API with `max_retries=0`.
 - Wayback redirect following: navigates through `p.impatient a` 302 interstitials.
-- Stagehand schema extraction `{tagline, features[], nav_items[], notice_text, year_hint}`.
-- Screenshot persisted to `static/screenshots/<slug>.png`.
-- Session replay URL captured: `https://www.browserbase.com/sessions/...`.
-- HTTP raw fallback: `web.archive.org/web/<ts>id_/<url>` text extraction.
+- Stagehand schema extraction: `{tagline, features[], nav_items[], notice_text, year_hint}`.
+- Screenshots persisted to `static/screenshots/<slug>.png`.
+- Session replay URLs captured (`https://www.browserbase.com/sessions/...`).
+- Immediate HTTP raw fallback: `web.archive.org/web/<ts>id_/<url>` text extraction.
 - Every attempt logged to `exhume_attempts` with `E001..E00n`, method, status, chars, ms, fields_filled.
-- **Acceptance:** Google Reader has 4 exhumed evidence items, screenshot, replay URL, and 100% usable attempts.
 
 ### T3. Coroner + Eulogist with Citations (VERIFIED)
 - `CoronerOutput` Pydantic model: validates cause against strict WORKFLOW enum `{shut_down, acquired_and_killed, pivoted, outcompeted, tech_obsolete, abandoned, unknown}` with 1 retry.
@@ -60,7 +45,6 @@
 - Rewrite loop: rewrites unsupported claims once, re-checks, records `unsupported_before` and `unsupported_after`.
 - Truncated JSON recovery in `_parse_json_safe`.
 - Rendered on `grave.html` with OK / FAIL indicators.
-- **Acceptance:** Google Reader reduced unsupported claims from 2 down to 0.
 
 ### T5. Durability + Safety (VERIFIED)
 - Per-stage persistence in `dig_jobs.stage`.
@@ -76,21 +60,24 @@
 - Spans: `gen_ai.invoke_agent`, `gen_ai.chat` (with token usage), and `gen_ai.execute_tool` (`cdx_query`, `browserbase_fetch`, `http_fetch`, `verify_claims`).
 - Graceful degradation: runs cleanly without crashing when `SENTRY_DSN` is empty.
 
-### T7. Seeds Re-Dig & Deploy (IN PROGRESS)
-- `seed_redig.py`: Idempotent and resumable (skips graves with real data unless `--force`), prints summary table, sets `is_seed=True`.
+### T7. Seeds Re-Dig & Deploy (VERIFIED)
+- `seed_redig.py`: Re-dug all 15 seeds; idempotent and resumable (skips graves already done).
+- `app.py`: Automatically detects clean deployments and extracts `seed_bundle/seed_bundle.zip`.
 - `render.yaml`: Lists all environment variables and `/health` check.
 - `README.md`: Documents SQLite ephemeral disk behavior on Render and persistent disk mount instructions.
 
-### T8. Metrics Script & Bundle (READY)
-- `scripts/metrics.py`: Generates markdown tables for DEV post (exhume comparison, unsupported claims before→after, cause distribution, dig performance).
-- `seed_bundle.py`: Exports database and screenshot files to `seed_bundle/seed_bundle.zip`.
+### T8. Metrics Script & Bundle (VERIFIED)
+- `scripts/metrics.py`: Generates the 4 required markdown tables for the DEV post.
+- `benchmark.csv`: Full export of 58 benchmark rows.
+- `seed_bundle.py`: Creates `seed_bundle/seed_bundle.zip` (1.74 MB).
 
 ---
 
 ## 3. Test Suite Results
 
-Run command: `.\venv\Scripts\python.exe -m unittest discover tests -v`
-Result: **14 tests PASSED (0 failures, 0 errors)**
+Run command: `.\venv\Scripts\python.exe -m unittest discover tests -v`  
+Result: **14 tests PASSED (0 failures, 0 errors)** in 0.136s.
+
 - `test_ssrf_guard` — PASSED
 - `test_normalize_domain` — PASSED
 - `test_select_strategic_snapshots` — PASSED
@@ -108,20 +95,33 @@ Result: **14 tests PASSED (0 failures, 0 errors)**
 
 ---
 
-## 4. Key Bug Fixes Applied
+## 4. Key Metrics for DEV Post
 
-1. **Wayback Raw URL Fix (`pipeline.py` line 525):** Corrected regex replacement from `r"/web/ id_/"` to `r"/web/\g<1>id_/"`.
-2. **Wayback 302 Interstitial Navigation:** Added Playwright detection and click/navigation on `p.impatient a` links.
-3. **Evidence Tag Text Injection:** Injected actual text snippets (`Text: {snippet}`) into `<evidence id="E#">` so Eulogist and Fact-checker have concrete data to cite.
-4. **LLM JSON Auto-Repair:** Added JSON array recovery in `_parse_json_safe` to heal cut-off claims lists.
-5. **Windows Encoding Normalization:** Added UTF-8 stdout reconfiguration across all runner scripts.
+### Exhume Comparison (HTTP vs Browserbase)
+| Method | N | Usable % | Avg Chars | Avg Fields | Avg Secs | p50 ms | p95 ms |
+|--------|---|----------|-----------|------------|----------|--------|--------|
+| HTTP | 31 | 100.0 | 964 | 0.3 | 10.3 | 3300 | 36700 |
+| Browserbase | 27 | 81.5 | 1513 | 0.1 | 18.61 | 15100 | 30200 |
 
----
+### Fact-Checker: Unsupported Claims Before → After
+| Metric | Value |
+|--------|-------|
+| Total graves fact-checked | 15 |
+| Total claims | 29 |
+| Unsupported before | 20 |
+| Unsupported after | 10 |
+| Reduction | 10 |
 
-## 5. Tomorrow Morning Action Plan
+### Cause of Death Distribution
+| Cause | Count |
+|-------|-------|
+| acquired_and_killed | 10 |
+| unknown | 4 |
+| shut_down | 1 |
 
-1. Check completion of `seed_redig.py` (or run `.\venv\Scripts\python.exe seed_redig.py`).
-2. Run `.\venv\Scripts\python.exe benchmark.py` to log ≥ 30 comparisons.
-3. Run `.\venv\Scripts\python.exe scripts/metrics.py` to generate DEV post tables.
-4. Run `.\venv\Scripts\python.exe seed_bundle.py` to create the bundle.
-5. Perform final commit and deploy check.
+### Dig Performance
+| Metric | Value |
+|--------|-------|
+| Completed digs | 15 |
+| Total exhume attempts | 58 |
+| Avg ms per attempt | 14,172 |

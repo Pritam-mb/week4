@@ -60,6 +60,30 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.on_event("startup")
 async def startup():
+    # Unpack seed bundle on clean deployment if needed
+    db_file = BASE_DIR / "graveyard.db"
+    bundle_zip = BASE_DIR / "seed_bundle" / "seed_bundle.zip"
+    if (not db_file.exists() or db_file.stat().st_size == 0) and bundle_zip.exists():
+        logger.info("Clean deployment detected: unpacking seed_bundle.zip...")
+        import zipfile
+        import shutil
+        tmp_extract = BASE_DIR / "seed_bundle_tmp"
+        try:
+            with zipfile.ZipFile(bundle_zip, "r") as z:
+                z.extractall(tmp_extract)
+            tmp_db = tmp_extract / "graveyard.db"
+            if tmp_db.exists():
+                shutil.copy2(tmp_db, db_file)
+            tmp_screens = tmp_extract / "screenshots"
+            if tmp_screens.exists():
+                for img in tmp_screens.glob("*"):
+                    shutil.copy2(img, SCREENSHOTS_DIR / img.name)
+            logger.info("Seed bundle unpacked successfully")
+        except Exception as e:
+            logger.warning(f"Failed to unpack seed bundle: {e}")
+        finally:
+            shutil.rmtree(tmp_extract, ignore_errors=True)
+
     await init_db()
     logger.info("Database initialized")
     # Resume any incomplete jobs on startup

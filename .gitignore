@@ -7,3 +7,6 @@ graveyard.db
 static/screenshots/*.jpg
 *.log
 .DS_Store
+scratch/
+seed_bundle_tmp/
+seed_bundle/screenshots/
