@@ -1,155 +1,898 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;400i;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root{
-  --ink:#0E0C0A;
-  --soil:#17140F;
-  --earth:#221D16;
-  --line:#3A3228;
-  --bone:#EDE4D3;
-  --ash:#A89E8C;
-  --marigold:#F2A22A;
-  --ember:#C8541F;
-  --sage:#7C8B6A;
-  --crimson:#9E2B25;
+  --paper:#EFE6D2;
+  --paper-2:#D9CFB8;
+  --ink:#14110D;
+  --ash:#6B6150;
+  --marigold:#E8920F;
+  --ember:#B84A18;
+  --sage:#566446;
+  --crimson:#8E2620;
+  --sage-tint:#CBD3B8;
 
-  --font-serif:'Cormorant Garamond', Georgia, serif;
+  --font-serif:'Fraunces', Georgia, "Times New Roman", serif;
   --font-mono:'IBM Plex Mono', ui-monospace, monospace;
 
-  --max-width:1100px;
+  --max-width:1440px;
+  --sidebar-width:400px;
+  --gap:48px;
 }
 
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
+*, *::before, *::after{box-sizing:border-box; margin:0; padding:0;}
+html{scrollbar-width:thin; scrollbar-color:var(--marigold) var(--paper);}
+::-webkit-scrollbar{width:8px; height:8px;}
+::-webkit-scrollbar-track{background:var(--paper);}
+::-webkit-scrollbar-thumb{background:var(--marigold);}
+::-webkit-scrollbar-thumb:hover{background:var(--ember);}
+
+::selection{background:var(--marigold); color:var(--ink);}
+
 body{
-  background:var(--ink);
-  color:var(--bone);
+  background:var(--paper);
+  color:var(--ink);
   font-family:var(--font-serif);
-  line-height:1.6;
-  -webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
-}
-a{color:var(--marigold);text-decoration:none}
-a:hover,a:focus{color:var(--ember);outline:0}
-:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
-
-/* film grain */
-.grain{
-  position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.04;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  line-height:1.5;
+  font-size:16px;
 }
 
-/* layout */
-.container{max-width:var(--max-width);margin:0 auto;padding:0 1.25rem;position:relative;z-index:2}
-main{position:relative;z-index:2}
+a{
+  color:var(--ink);
+  text-decoration:underline;
+  text-underline-offset:2px;
+  text-decoration-thickness:1px;
+  transition:color 150ms, text-decoration-thickness 150ms;
+}
+a:hover, a:focus-visible{
+  color:var(--ember);
+  text-decoration-thickness:2px;
+}
+a:focus-visible{
+  outline:2px solid var(--ink);
+  outline-offset:2px;
+}
 
-/* papel picado banner */
+button:focus-visible, input:focus-visible, textarea:focus-visible{
+  outline:2px solid var(--ink);
+  outline-offset:2px;
+}
+
+h1, h2, h3, h4, h5, h6{font-family:var(--font-serif); font-weight:700;}
+p{margin:0 0 1rem 0;}
+ul, ol{margin:0 0 1rem 1.5rem;}
+
+/* ---------- Frame ---------- */
+
+.page-frame{
+  max-width:var(--max-width);
+  margin:0 auto;
+  padding:0 56px;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* Top strip */
+.top-strip{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  padding:20px 0 16px;
+  border-bottom:1px solid var(--ink);
+}
+.top-strip .strip-left, .top-strip .strip-right{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+}
+
+/* Masthead */
+.masthead{
+  text-align:center;
+  padding:26px 0;
+  border-top:4px solid var(--ink);
+  border-bottom:1px solid var(--ink);
+}
+.masthead-title{
+  font-family:var(--font-serif);
+  font-weight:700;
+  font-size:clamp(48px, 10vw, 104px);
+  line-height:1;
+  letter-spacing:-0.04em;
+  text-transform:uppercase;
+  color:var(--ink);
+  display:inline;
+}
+.masthead-title .software{
+  font-style:italic;
+  font-weight:400;
+  color:var(--ember);
+  text-transform:none;
+}
+
+/* Nav */
+.nav{
+  text-align:center;
+  padding:16px 0 24px;
+  border-bottom:4px double var(--ink);
+}
+.nav-links{
+  list-style:none;
+  display:inline-flex;
+  gap:56px;
+  margin:0;
+  padding:0;
+}
+.nav-links li{display:inline;}
+.nav-links a{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  text-decoration:none;
+  color:var(--ink);
+  padding-bottom:4px;
+  border-bottom:2px solid transparent;
+  transition:border-color 150ms, color 150ms;
+}
+.nav-links a:hover, .nav-links a:focus-visible{
+  color:var(--ember);
+  border-bottom-color:var(--marigold);
+}
+.nav-links a.current{
+  color:var(--ink);
+  border-bottom-color:var(--marigold);
+  border-bottom-width:2px;
+  border-bottom-style:solid;
+}
+
+/* Papel picado banner */
 .papel-picado{
-  background:var(--soil);
-  border-bottom:1px solid var(--line);
-  padding:.4rem 0;
+  height:44px;
   overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-  gap:1.5rem;
+  position:relative;
+  background:transparent;
 }
-.papel-picado svg{height:24px;width:auto;display:block}
-.papel-picado .flag{fill:none;stroke-width:1;stroke:var(--line)}
-.papel-picado .flag.marigold{stroke:var(--marigold)}
-.papel-picado .flag.ember{stroke:var(--ember)}
-
-/* header */
-.site-header{text-align:center;padding:3.5rem 1rem 2.5rem}
-.site-title{font-family:var(--font-serif);font-size:clamp(2.5rem,6vw,4.5rem);letter-spacing:-.01em;margin:.5rem 0;font-weight:700}
-.site-tagline{font-family:var(--font-mono);font-size:.85rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ash);margin:0}
-
-/* nav */
-.nav{position:sticky;top:0;background:var(--soil);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.25rem;z-index:10}
-.nav-brand{font-family:var(--font-serif);font-size:1.1rem}
-.nav-links{list-style:none;display:flex;gap:1.5rem;margin:0;padding:0}
-.nav-links a{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ash)}
-.nav-links a:hover{color:var(--bone)}
-
-/* cemetery grid */
-.cemetery-grid{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:2rem;padding:2rem 0 4rem
+.papel-picado .flag-strip{
+  display:flex;
+  gap:0;
+  position:absolute;
+  left:0;
+  top:0;
+  white-space:nowrap;
+  will-change:transform;
 }
-.tombstone-card{
-  display:block;background:var(--soil);border:1px solid var(--line);border-top-left-radius:48px;border-top-right-radius:48px;border-bottom-left-radius:0;border-bottom-right-radius:0;padding:2.5rem 1.5rem 1.5rem;position:relative;text-decoration:none;color:inherit;transition:border-color .18s,transform .18s
+.papel-picado svg{
+  display:block;
+  width:55px;
+  height:44px;
 }
-.tombstone-card:hover,.tombstone-card:focus{border-color:var(--marigold);transform:translateY(-2px);outline:0}
-.tombstone-cross{display:none}
-.tombstone-name{font-family:var(--font-serif);font-size:1.6rem;line-height:1.1;margin:.5rem 0 .25rem;text-align:center}
-.tombstone-dates{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ash);text-align:center;margin-bottom:.75rem}
-.tombstone-epitaph{font-family:var(--font-serif);font-size:1rem;font-style:italic;color:var(--bone);text-align:center;margin:1rem 0 1rem}
-.tombstone-footer{display:flex;justify-content:center;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:.8rem;color:var(--ash)}
-.marigold-icon{display:inline-block;width:18px;height:18px}
-.marigold-count{font-variant-numeric:tabular-nums}
+.papel-picado path.fill-m{fill:var(--marigold);}
+.papel-picado path.fill-e{fill:var(--ember);}
+.papel-picado path.fill-i{fill:var(--ink);}
+.papel-picado path.cutout{fill:var(--paper);}
 
-/* bury section */
-.section-divider{margin:3rem 0 2rem;display:flex;align-items:center;gap:.75rem;color:var(--ash);font-family:var(--font-mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase}
-.section-divider::before,.section-divider::after{content:"";flex:1;height:1px;background:var(--line)}
-.bury-section{max-width:680px;margin:0 auto}
-.stage-pipeline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin:1.5rem 0 2rem}
-.stage{display:flex;flex-direction:column;align-items:center;gap:.3rem;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ash);border:1px solid var(--line);background:var(--soil);padding:.5rem .6rem}
-.stage.active{border-color:var(--marigold);color:var(--marigold)}
-.stage.done{border-color:var(--sage);color:var(--sage)}
-.stage.failed{border-color:var(--crimson);color:var(--crimson)}
-.stage-connector{height:1px;background:var(--line);flex:1;min-width:24px;margin:.4rem 0;transform:translateY(-50%)}
-.form-group{margin-bottom:1.25rem}
-.form-label{display:block;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ash);margin-bottom:.4rem}
-.form-input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);color:var(--bone);font-family:var(--font-mono);font-size:.95rem;padding:.4rem 0;outline:0}
-.form-input:focus{border-bottom-color:var(--marigold)}
-.bury-btn{display:inline-block;background:var(--marigold);color:var(--ink);font-family:var(--font-serif);font-size:1.1rem;padding:.8rem 1.2rem;border:0;cursor:pointer;transition:background .16s,transform .16s}
-.bury-btn:hover{background:var(--ember);color:var(--bone);transform:translateY(-1px)}
+/* Footer */
+.site-footer{
+  margin-top:auto;
+  padding:26px 0;
+  border-top:4px double var(--ink);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ash);
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:1rem;
+}
+.site-footer .footer-left, .site-footer .footer-right{
+  flex:1;
+}
 
-/* grave page */
-.grave-hero{text-align:center;padding:3rem 1rem 2rem}
-.grave-rip{font-family:var(--font-mono);letter-spacing:.3em;text-transform:uppercase;color:var(--ash);font-size:.75rem;margin-bottom:1rem}
-.grave-name{font-size:clamp(2.5rem,6vw,4rem);margin:.25rem 0 .5rem}
-.grave-dates{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.12em;color:var(--ash)}
-.grave-epitaph{font-family:var(--font-serif);font-style:italic;font-size:1.35rem;max-width:62ch;margin:1rem auto 1.5rem}
-.marigold-section{text-align:center;margin:1.5rem 0}
-.marigold-btn{background:var(--marigold);color:var(--ink);border:0;font-family:var(--font-serif);font-size:1.05rem;padding:.7rem 1.1rem;cursor:pointer;display:inline-flex;align-items:center;gap:.6rem}
-.marigold-btn:disabled{opacity:.6;cursor:not-allowed}
-.marigold-total{font-family:var(--font-mono);font-size:.8rem;color:var(--ash);margin-top:.5rem}
-.disclaimer{font-family:var(--font-mono);font-size:.7rem;color:var(--ash);text-align:center;margin:1rem auto;max-width:60ch}
-.back-link{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.08em;display:inline-block;margin-top:1rem}
+/* ---------- Layout: two columns ---------- */
 
-/* two column */
-.grave-content{display:grid;grid-template-columns:1.2fr .8fr;gap:2.5rem;max-width:var(--max-width);margin:0 auto;padding:2rem 1.25rem 4rem}
-@media(max-width:900px){.grave-content{grid-template-columns:1fr}}
-.grave-panel{background:var(--soil);border:1px solid var(--line);padding:1.5rem;margin-bottom:1.5rem}
-.grave-panel h3{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ash);margin:0 0 .75rem;border-bottom:1px solid var(--line);padding-bottom:.5rem}
-.grave-eulogy{font-family:var(--font-serif);font-size:1.1rem;max-width:65ch}
+.two-column{
+  display:flex;
+  gap:var(--gap);
+  margin-top:48px;
+  align-items:flex-start;
+}
+.main-col{flex:1;}
+.sidebar{width:var(--sidebar-width); flex-shrink:0;}
+.col-rule{border-left:1px solid var(--ink); height:100%; position:absolute; top:0; bottom:0; left:calc(50% + 24px);}
 
-/* right column */
-.cause-of-death{font-family:var(--font-mono);font-size:.85rem;margin:1rem 0;border:1px solid var(--line);padding:.8rem;background:var(--earth)}
-.badge{display:inline-block;font-family:var(--font-mono);font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--line);padding:.15rem .5rem;margin-right:.5rem}
-.replay-link{display:inline-block;font-family:var(--font-mono);font-size:.75rem;border:1px solid var(--line);padding:.4rem .7rem;margin-top:.75rem}
-.sources-list{display:flex;flex-direction:column;gap:.5rem}
-.source-link{font-family:var(--font-mono);font-size:.78rem;border-bottom:1px solid var(--line);display:inline-block;padding:.2rem 0}
+/* ---------- Home page ---------- */
 
-/* lifeline */
-.lifeline-panel{margin:2rem 0}
-.panel-sub{font-family:var(--font-mono);font-size:.72rem;color:var(--ash)}
-.lifeline-sparkline{width:100%;height:140px;display:block;margin:1rem 0;overflow:visible}
-.lifeline-axes{margin-top:.4rem;font-family:var(--font-mono);font-size:.7rem;color:var(--ash);display:flex;justify-content:space-between}
+.kicker-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:16px;
+}
+.kicker-tag{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  background:var(--ink);
+  color:var(--paper);
+  padding:2px 8px;
+  display:inline-block;
+}
+.kicker-line{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ash);
+}
 
-/* screenshot */
-.grave-screenshot{width:100%;border:1px solid var(--line);filter:saturate(.85);background:#000}
-.screenshot-placeholder{border:1px dashed var(--line);text-align:center;padding:3rem;font-family:var(--font-mono);font-size:.75rem;color:var(--ash)}
+.obituary-headline{
+  font-family:var(--font-serif);
+  font-weight:700;
+  font-size:clamp(36px, 8vw, 76px);
+  line-height:1;
+  letter-spacing:-0.035em;
+  margin:0 0 12px;
+  word-wrap:break-word;
+}
+.deck{
+  font-family:var(--font-serif);
+  font-style:italic;
+  font-weight:400;
+  font-size:26px;
+  color:var(--ash);
+  margin:0 0 24px;
+  line-height:1.25;
+}
 
-/* footer */
-.site-footer{border-top:1px solid var(--line);padding:2rem 1.25rem;text-align:center;font-family:var(--font-mono);font-size:.7rem;color:var(--ash)}
+.archive-grid{
+  display:grid;
+  grid-template-columns:1fr 250px;
+  gap:32px;
+  margin-bottom:32px;
+}
 
-/* utilities */
-.text-center{text-align:center}
-.petals-container{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-.petal{position:absolute;top:-40px;width:18px;height:18px;opacity:.6;animation:fall linear infinite}
-@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
-@media (prefers-reduced-motion:reduce){.petal{display:none}}
+/* Archive frame */
+.archive-frame{
+  border:2px solid var(--ink);
+  display:flex;
+  flex-direction:column;
+  height:100%;
+}
+.archive-frame.no-screenshot{
+  background:var(--paper-2);
+}
+.frame-titlebar{
+  background:var(--paper);
+  border-bottom:1px solid var(--ink);
+  padding:8px 10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.frame-controls{
+  display:flex;
+  gap:6px;
+}
+.frame-control{
+  width:11px;
+  height:11px;
+  border:1px solid var(--ink);
+  background:transparent;
+}
+.frame-url{
+  margin-left:auto;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+}
+.frame-image{
+  width:100%;
+  height:300px;
+  object-fit:cover;
+  object-position:top;
+  filter:grayscale(100%) contrast(90%);
+  display:block;
+}
+.frame-caption{
+  padding:10px;
+  border-top:1px solid var(--ink);
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:8px;
+}
+.frame-caption .caption-label{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ash);
+}
+.frame-caption .caption-link{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  text-decoration:none;
+  color:var(--ink);
+  border-bottom:1px solid var(--ink);
+  padding-bottom:1px;
+}
+.no-capture-text{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ash);
+  padding:40px 16px;
+  text-align:center;
+  border-top:1px solid var(--ink);
+}
 
-/* 2px marigold focus visible */
-a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
+/* Cause card */
+.cause-card{
+  border:1px solid var(--ink);
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  height:fit-content;
+}
+.cause-heading{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+  margin-bottom:4px;
+}
+.cause-stamp{
+  display:inline-block;
+  border:2px solid var(--ember);
+  color:var(--ember);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  padding:6px 10px;
+  transform:rotate(-2deg);
+  transform-origin:center;
+  text-align:center;
+  width:100%;
+}
+.cause-evidence{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  color:var(--ash);
+  line-height:1.4;
+}
 
-/* responsive */
-@media(max-width:600px){.nav-links{display:none}.cemetery-grid{grid-template-columns:1fr;padding:1rem 0}}
+/* Eulogy */
+.eulogy-section{
+  margin-top:32px;
+}
+.eulogy-body{
+  font-family:var(--font-serif);
+  font-size:19px;
+  line-height:1.55;
+  column-count:2;
+  column-gap:28px;
+  column-rule:1px solid var(--ink);
+  text-align:justify;
+  hyphens:auto;
+}
+.drop-cap::first-letter{
+  float:left;
+  font-family:var(--font-serif);
+  font-weight:700;
+  font-size:78px;
+  line-height:0.9;
+  color:var(--ember);
+  padding-right:8px;
+  margin-top:2px;
+}
+@media (max-width:768px){
+  .eulogy-body{column-count:1; column-rule:none;}
+}
+
+/* Claims line */
+.claims-line{
+  margin-top:24px;
+  padding-top:16px;
+  border-top:1px solid var(--ink);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+}
+.claims-line .supported{
+  background:var(--sage-tint);
+  color:var(--ink);
+  padding:2px 6px;
+  margin-right:6px;
+  display:inline-block;
+}
+.claims-line .removed{
+  color:var(--crimson);
+  text-decoration:line-through 2px solid var(--crimson);
+  margin-right:6px;
+  display:inline-block;
+}
+.claims-line .counts{
+  color:var(--ash);
+}
+
+/* Survived by */
+.survived-by{
+  font-family:var(--font-serif);
+  font-style:italic;
+  font-size:19px;
+  margin-top:24px;
+  color:var(--ink);
+}
+
+/* Memories */
+.memories-section{
+  margin-top:48px;
+  border-top:1px solid var(--ink);
+  padding-top:24px;
+}
+.memory-entry{
+  border-bottom:1px solid var(--ink);
+  padding:12px 0;
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:12px;
+}
+.memory-entry:last-child{border-bottom:none;}
+.memory-text{font-size:15px; line-height:1.4;}
+.memory-ts{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  color:var(--ash);
+  text-transform:uppercase;
+}
+.memory-form{
+  margin-top:24px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.memory-input{
+  flex:1;
+  min-width:200px;
+  background:transparent;
+  border:0;
+  border-bottom:2px solid var(--ink);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  color:var(--ink);
+  padding:6px 0;
+  max-width:140ch;
+}
+.memory-input::placeholder{color:var(--ash);}
+.memory-submit{
+  background:var(--ink);
+  color:var(--paper);
+  border:0;
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  padding:6px 16px;
+  cursor:pointer;
+}
+.memory-submit:hover{background:var(--ember);}
+
+/* Sidebar boxes */
+.sidebar-box{
+  border:1px solid var(--ink);
+  padding:18px;
+  margin-bottom:16px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.sidebar-box:last-child{margin-bottom:0;}
+.sidebar-heading{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+  border-bottom:2px solid var(--ink);
+  padding-bottom:4px;
+  margin-bottom:4px;
+}
+
+/* Lifeline */
+.lifeline-bars{
+  position:relative;
+  height:90px;
+  border-top:1px solid var(--ink);
+  margin-top:8px;
+}
+.lifeline-bar{
+  position:absolute;
+  bottom:0;
+  width:12px;
+  background:var(--marigold);
+}
+.lifeline-label{
+  position:absolute;
+  bottom:-16px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  color:var(--ink);
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.lifeline-label.first{left:0; transform:translateX(-50%);}
+.lifeline-label.last{right:0; transform:translateX(50%);}
+
+/* Sources */
+.sources-list{list-style:none; margin:0; padding:0;}
+.source-row{
+  border-bottom:1px solid var(--ink);
+  padding:6px 0;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+  text-decoration:none;
+}
+.source-row:last-child{border-bottom:none;}
+.source-row .arrow{
+  width:10px; height:10px;
+  fill:none; stroke:var(--ink); stroke-width:1;
+}
+
+/* Marigold button */
+.marigold-btn-box{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:var(--marigold);
+  color:var(--ink);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  padding:12px 16px;
+  cursor:pointer;
+  border:none;
+}
+.marigold-btn-box:hover{background:var(--ember); color:var(--paper);}
+.marigold-icon-svg{
+  width:16px; height:16px;
+  fill:none; stroke:currentColor; stroke-width:2;
+}
+.marigold-petal{
+  fill:currentColor;
+}
+.marigold-center{
+  fill:var(--ember);
+}
+
+/* Recently departed */
+.recently-departed{}
+.recently-row{
+  border-bottom:1px solid var(--ink);
+  padding:10px 0;
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+  text-decoration:none;
+  color:inherit;
+}
+.recently-row:last-child{border-bottom:none;}
+.recently-info{}
+.recently-name{
+  font-family:var(--font-serif);
+  font-weight:600;
+  font-size:26px;
+  line-height:1.1;
+  color:var(--ink);
+  display:block;
+}
+.recently-meta{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  color:var(--ash);
+  text-transform:uppercase;
+  display:block;
+}
+.recently-count{
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--ember);
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+}
+
+/* Bury form */
+.bury-form-box{
+  border:2px solid var(--ink);
+  padding:22px;
+  background:var(--paper);
+}
+.bury-heading{
+  font-family:var(--font-serif);
+  font-weight:700;
+  font-size:30px;
+  color:var(--ink);
+  margin-bottom:16px;
+}
+.bury-input-group{margin-bottom:16px;}
+.bury-input{
+  width:100%;
+  background:transparent;
+  border:0;
+  border-bottom:2px solid var(--ink);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  color:var(--ink);
+  padding:6px 0;
+}
+.bury-input::placeholder{color:var(--ash); text-transform:uppercase;}
+.bury-submit{
+  width:100%;
+  background:var(--ink);
+  color:var(--paper);
+  border:0;
+  font-family:var(--font-serif);
+  font-weight:700;
+  font-size:16px;
+  padding:10px 0;
+  cursor:pointer;
+  text-transform:uppercase;
+}
+.bury-submit:hover{background:var(--ember);}
+.bury-submit:disabled{background:var(--ash); cursor:not-allowed;}
+
+/* Bury progress stepper */
+.bury-stepper{
+  margin-top:24px;
+  border:1px solid var(--ink);
+  padding:16px;
+  background:var(--paper-2);
+}
+.stepper-heading{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+  margin-bottom:12px;
+}
+.stepper-steps{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  position:relative;
+  padding-left:24px;
+}
+.stepper-steps::before{
+  content:'';
+  position:absolute;
+  left:16px; top:0; bottom:0;
+  width:1px; background:var(--ink);
+}
+.stepper-step{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.stepper-square{
+  width:12px; height:12px;
+  border:1px solid var(--ink);
+  background:transparent;
+  position:relative;
+  z-index:1;
+}
+.stepper-step.done .stepper-square{background:var(--sage); border-color:var(--sage);}
+.stepper-step.active .stepper-square{background:var(--marigold); border-color:var(--marigold);}
+.stepper-step.pending .stepper-square{border-color:var(--ash); background:transparent;}
+.stepper-step.failed .stepper-square{background:var(--crimson); border-color:var(--crimson);}
+.stepper-label{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  color:var(--ink);
+  text-transform:uppercase;
+}
+
+/* Cemetery list (home page bottom) */
+.cemetery-section{
+  margin-top:64px;
+  border-top:2px solid var(--ink);
+  padding-top:24px;
+}
+.cemetery-heading{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+  margin-bottom:16px;
+}
+.cemetery-list{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:16px;
+}
+.cemetery-entry{
+  border-bottom:1px solid var(--ink);
+  padding:10px 0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  text-decoration:none;
+  color:inherit;
+}
+.cemetery-entry:hover{border-bottom-color:var(--ember);}
+.cemetery-name{
+  font-family:var(--font-serif);
+  font-weight:600;
+  font-size:19px;
+  color:var(--ink);
+}
+.cemetery-meta{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  color:var(--ash);
+  text-transform:uppercase;
+}
+.cemetery-marigolds{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  color:var(--ember);
+  text-transform:uppercase;
+}
+
+/* ---------- Benchmark page ---------- */
+.benchmark-headline{
+  font-family:var(--font-serif);
+  font-weight:700;
+  font-size:clamp(28px, 6vw, 48px);
+  line-height:1;
+  letter-spacing:-0.02em;
+  margin:0 0 12px;
+}
+.benchmark-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:24px;
+  margin-bottom:32px;
+}
+.benchmark-card{
+  border:1px solid var(--ink);
+  padding:20px;
+  background:var(--paper-2);
+}
+.benchmark-card-title{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ink);
+  margin-bottom:16px;
+  border-bottom:1px solid var(--ink);
+  padding-bottom:8px;
+}
+.benchmark-stat{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:8px;
+  font-family:var(--font-serif);
+  font-size:28px;
+  line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.benchmark-stat .stat-label{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--ash);
+  line-height:1.4;
+}
+.benchmark-bar{
+  margin-top:12px;
+  height:16px;
+  border:1px solid var(--ink);
+  background:var(--paper);
+}
+.benchmark-bar-fill{
+  height:100%;
+  background:var(--marigold);
+}
+.benchmark-bar-fill.ink-fill{background:var(--ink);}
+
+.benchmark-table{
+  width:100%;
+  border-collapse:collapse;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+}
+.benchmark-table th{
+  border-bottom:2px solid var(--ink);
+  text-align:left;
+  padding:8px 4px;
+  color:var(--ink);
+}
+.benchmark-table td{
+  border-bottom:1px solid var(--ink);
+  padding:6px 4px;
+  color:var(--ink);
+}
+.benchmark-table tr:hover td{background:var(--paper-2);}
+
+/* ---------- Responsive ---------- */
+@media (max-width:900px){
+  .two-column{flex-direction:column; gap:32px;}
+  .col-rule{display:none;}
+  .sidebar{width:100%;}
+  .archive-grid{grid-template-columns:1fr;}
+  .cemetery-list{grid-template-columns:1fr;}
+  .benchmark-summary-grid{grid-template-columns:1fr;}
+}
+@media (max-width:360px){
+  .page-frame{padding:0 16px;}
+  .top-strip{padding:16px 0 12px;}
+  .masthead{padding:18px 0;}
+  .nav-links{gap:24px;}
+  .papel-picado{display:none;}
+  .obituary-headline{font-size:clamp(28px, 10vw, 52px);}
+  .deck{font-size:20px;}
+  .cause-stamp{font-size:10px; padding:4px 8px;}
+  .bury-heading{font-size:24px;}
+}
+
+/* ---------- Petals ---------- */
+.petals-container{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  overflow:hidden;
+}
+.petal{
+  position:absolute;
+  top:-40px;
+  width:12px; height:12px;
+  opacity:0.5;
+  animation:fall linear infinite;
+}
+.petal svg{width:100%; height:100%; fill:var(--marigold);}
+@keyframes fall{
+  to{transform:translateY(110vh) rotate(720deg);}
+}
+@media (prefers-reduced-motion:reduce){
+  .petal{display:none !important;}
+}

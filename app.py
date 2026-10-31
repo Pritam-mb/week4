@@ -53,6 +53,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 BASE_DIR = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.filters["fromjson"] = lambda s: json.loads(s) if (isinstance(s, str) and s.strip().startswith(("[", "{"))) else (s or [])
 
 SCREENSHOTS_DIR = BASE_DIR / "static" / "screenshots"
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)

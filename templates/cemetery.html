@@ -1,209 +1,384 @@
 {% extends "base.html" %}
 
-{% block title %}Graveyard of Dead Software — The Internet's Cemetery{% endblock %}
-{% block description %}A public night-time cemetery for dead software, apps, and websites. Exhumed from the Wayback Machine, eulogized by Gemma. Leave a marigold.{% endblock %}
+{% block title %}The Dead Software Obituaries — The Cemetery{% endblock %}
+{% block description %}A newspaper obituary page for dead software, exhumed from the Wayback Machine. Leave a marigold.{% endblock %}
 
 {% block content %}
-<header class="site-header container">
-  <div class="moon" aria-hidden="true"></div>
-  <h1 class="site-title">Graveyard of Dead Software</h1>
-  <p class="site-tagline">Every grave here was killed by someone. This one runs on open weights — it can't die.</p>
-</header>
 
-<main class="container">
+{% set lead = None %}
+{% if graves %}
+  {% set _sorted = graves | sort(attribute='marigolds', reverse=true) | sort(attribute='created_at', reverse=true) %}
+  {% set lead = _sorted[0] %}
+{% endif %}
 
-  <!-- Stats bar -->
-  <div id="stats-bar" style="display:flex; gap:2rem; justify-content:center; margin-bottom:2rem; flex-wrap:wrap;">
-    <span style="font-family:var(--font-mono); font-size:0.85rem; color:var(--ash);">
-      <strong style="color:var(--bone)">{{ graves|length }}</strong> graves
-    </span>
-    <span style="font-family:var(--font-mono); font-size:0.85rem; color:var(--ash);">
-      <strong style="color:var(--bone)">{{ graves|sum(attribute='marigolds') }}</strong> marigolds
-    </span>
+{% if lead %}
+<div class="two-column" id="obituary-page">
+  <div class="main-col">
+    <div class="col-rule" aria-hidden="true"></div>
+
+    <!-- Kicker row -->
+    <div class="kicker-row">
+      <span class="kicker-tag">Obituary</span>
+      {% if lead.exhume_attempts %}
+        {% set _attempts = lead.exhume_attempts | fromjson %}
+        {% if _attempts | length > 0 %}
+        <span class="kicker-line">Dug up from the Wayback Machine / {{ _attempts | length }} snapshots walked back</span>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Headline -->
+    <h1 class="obituary-headline">
+      {{ lead.name }},
+      {% if lead.first_archived %}{{ lead.first_archived[:4] }}{% else %}?{% endif %}
+      &ndash;
+      {% if lead.last_seen_alive %}{{ lead.last_seen_alive[:4] }}{% else %}?{% endif %}
+    </h1>
+
+    <!-- Deck -->
+    {% if lead.epitaph %}
+    <p class="deck">{{ lead.epitaph }}</p>
+    {% endif %}
+
+    <!-- Archive grid -->
+    <div class="archive-grid">
+      <!-- Archive frame -->
+      <div class="archive-frame{% if not lead.screenshot_path %} no-screenshot{% endif %}">
+        <div class="frame-titlebar">
+          <div class="frame-controls">
+            <button class="frame-control" aria-label="minimize"></button>
+            <button class="frame-control" aria-label="maximize"></button>
+            <button class="frame-control" aria-label="close"></button>
+          </div>
+          <div class="frame-url">
+            web.archive.org / {% if lead.first_archived %}{{ lead.first_archived[:4] }}{% else %}?{% endif %} / {% if lead.url %}{{ lead.url | replace('https://','') | replace('http://','') }}{% endif %}
+          </div>
+        </div>
+        {% if lead.screenshot_path %}
+          <img src="{{ lead.screenshot_path }}" alt="Screenshot of {{ lead.name }} from the Wayback Machine" class="frame-image" loading="lazy">
+        {% else %}
+          <div class="frame-caption">
+            <span class="caption-label">No archived capture available.</span>
+          </div>
+        {% endif %}
+        <div class="frame-caption">
+          <span class="caption-label">Last archived page</span>
+          {% if lead.replay_url %}
+          <a href="{{ lead.replay_url }}" target="_blank" rel="noopener" class="caption-link">Watch the exhumation</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Cause card -->
+      <div class="cause-card">
+        <div class="cause-heading">Likely cause of death</div>
+        <div class="cause-stamp">{{ (lead.cause_label or 'unknown') | replace('_',' ') | title }}</div>
+        {% if lead.cause_evidence %}
+        {% set _ev = lead.cause_evidence | fromjson %}
+        {% if _ev %}
+        <div class="cause-evidence">
+          {% for e in _ev %}
+          {{ e }}
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Eulogy -->
+    <div class="eulogy-section">
+      {% set _eulogy = lead.eulogy_verified or lead.eulogy or "Little is left of it &mdash; the archive holds only silence." %}
+      <div class="eulogy-body drop-cap">{{ _eulogy }}</div>
+    </div>
+
+    <!-- Claims line -->
+    {% if lead.claims_json %}
+    {% set _claims = lead.claims_json | fromjson %}
+    {% if _claims %}
+    <div class="claims-line">
+      {% set _supported = _claims | selectattr('supported') | list %}
+      {% set _removed = _claims | rejectattr('supported') | list %}
+      {% for c in _supported %}
+      <span class="supported" title="{{ c.quote or '' }}">{{ c.claim }}</span>
+      {% endfor %}
+      {% for c in _removed %}
+      <span class="removed">{{ c.claim }}</span>
+      {% endfor %}
+      <span class="counts">{{ _supported | length }} supported &middot; {{ _removed | length }} removed</span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Survived by -->
+    {% if lead.survived_by %}
+    <p class="survived-by">{{ lead.survived_by }}</p>
+    {% endif %}
+
+    <!-- Memories -->
+    <div class="memories-section">
+      {% set _memories = lead.memories_json | fromjson if lead.memories_json else [] %}
+      {% if _memories %}
+      <ul>
+        {% for m in _memories %}
+        <li class="memory-entry">
+          <span class="memory-text">{{ m.text }}</span>
+          <span class="memory-ts">{{ m.ts }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);">No memories yet.</p>
+      {% endif %}
+
+      <!-- Memory form -->
+      <form id="memory-form" class="memory-form" data-slug="{{ lead.slug }}">
+        <input type="text" id="memory-input" name="text" maxlength="500" placeholder="Leave a memory (140 chars)" class="memory-input">
+        <button type="submit" class="memory-submit">Leave</button>
+      </form>
+      <div id="memories-result"></div>
+    </div>
   </div>
 
-  <!-- Cemetery grid -->
-  {% if graves %}
-  <div class="cemetery-grid" id="cemetery-grid">
-    {% for grave in graves %}
-    <a href="/grave/{{ grave.slug }}" class="tombstone-card fade-in-up" id="tomb-{{ grave.slug }}">
-      <div class="tombstone-name">{{ grave.name }}</div>
-      <div class="tombstone-dates">
-        {% if grave.first_archived %}{{ grave.first_archived }}{% else %}?{% endif %}
-        &nbsp;–&nbsp;
-        {% if grave.last_seen_alive %}{{ grave.last_seen_alive }}{% else %}?{% endif %}
+  <div class="sidebar">
+    <!-- Lifeline -->
+    {% if lead.lifeline_json %}
+    {% set _life = lead.lifeline_json | fromjson %}
+    {% if _life %}
+    <div class="sidebar-box">
+      <div class="sidebar-heading">Lifeline / months archived per year</div>
+      <div class="lifeline-bars">
+        {% set _years = _life.keys() | list | sort %}
+        {% set _max = _life.values() | max %}
+        {% set _first = _years[0] %}
+        {% set _last = _years[-1] %}
+        {% for y in _years %}
+        {% set _pct = (_life[y] / _max * 100) if _max > 0 else 0 %}
+        <div class="lifeline-bar" style="left:{{ loop.index0 * 100 / (_years | length) }}%; width:8px; height:{{ _pct }}%;"></div>
+        {% endfor %}
+        <span class="lifeline-label first">{{ _first }}</span>
+        <span class="lifeline-label last">{{ _last }}</span>
       </div>
-      {% if grave.epitaph %}
-      <div class="tombstone-epitaph">"{{ grave.epitaph }}"</div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Sources -->
+    <div class="sidebar-box">
+      <div class="sidebar-heading">Sources</div>
+      <ul class="sources-list">
+        {% if lead.first_archive_url %}
+        <li><a href="{{ lead.first_archive_url }}" target="_blank" rel="noopener" class="source-row">First capture<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
+        {% endif %}
+        {% if lead.archive_url %}
+        <li><a href="{{ lead.archive_url }}" target="_blank" rel="noopener" class="source-row">Last capture<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
+        {% endif %}
+        {% if lead.replay_url %}
+        <li><a href="{{ lead.replay_url }}" target="_blank" rel="noopener" class="source-row">Session replay<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <!-- Marigold button -->
+    <button class="marigold-btn-box" id="marigold-btn" data-slug="{{ lead.slug }}" aria-label="Leave a marigold for {{ lead.name }}">
+      <svg class="marigold-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+        <ellipse class="marigold-petal" cx="12" cy="4" rx="2.5" ry="6"/>
+        <ellipse class="marigold-petal" cx="20" cy="12" rx="6" ry="2.5"/>
+        <ellipse class="marigold-petal" cx="12" cy="20" rx="2.5" ry="6"/>
+        <ellipse class="marigold-petal" cx="4" cy="12" rx="6" ry="2.5"/>
+        <ellipse class="marigold-petal" cx="8" cy="8" rx="3" ry="3" transform="rotate(45 8 8)"/>
+        <ellipse class="marigold-petal" cx="16" cy="16" rx="3" ry="3" transform="rotate(45 16 16)"/>
+        <ellipse class="marigold-petal" cx="8" cy="16" rx="3" ry="3" transform="rotate(-45 8 16)"/>
+        <ellipse class="marigold-petal" cx="16" cy="8" rx="3" ry="3" transform="rotate(-45 16 8)"/>
+        <circle class="marigold-center" cx="12" cy="12" r="2.5"/>
+      </svg>
+      <span>Leave a marigold</span>
+      <span id="marigold-count">{{ lead.marigolds }}</span>
+    </button>
+
+    <!-- Recently departed -->
+    <div class="sidebar-box">
+      <div class="sidebar-heading">Recently departed</div>
+      {% for g in graves %}
+      {% if g.slug != lead.slug %}
+      <a href="/grave/{{ g.slug }}" class="recently-row">
+        <div class="recently-info">
+          <span class="recently-name">{{ g.name }}</span>
+          <span class="recently-meta">{% if g.first_archived and g.last_seen_alive %}{{ g.first_archived[:4] }} &ndash; {{ g.last_seen_alive[:4] }} / {{ (g.cause_label or 'unknown') | replace('_',' ') }}{% endif %}</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1.5 2 3 3 5 3-1 2-2.5 3-4 4 1 1.5 1.5 3 1 5-2-1-3.5-2.5-5-4-1.5 1.5-3 3-5 4 0-2 .5-3.5 1.5-5-1.5-1-3-2-4-4 2 0 3.5-1 5-3z" fill="var(--ember)"/></svg>
+        <span class="recently-count">{{ g.marigolds }}</span>
+      </a>
       {% endif %}
-      <div class="tombstone-footer">
-        <span class="marigold-icon" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2c1.5 2 3 3 5 3-1 2-2.5 3-4 4 1 1.5 1.5 3 1 5-2-1-3.5-2.5-5-4-1.5 1.5-3 3-5 4 0-2 .5-3.5 1.5-5-1.5-1-3-2-4-4 2 0 3.5-1 5-3z" fill="var(--marigold)"/></svg>
-        </span>
-        <span class="marigold-count">{{ grave.marigolds }}</span>
+      {% endfor %}
+    </div>
+
+    <!-- Bury form -->
+    <div class="sidebar-box bury-form-box">
+      <div class="bury-heading">Know a project that died?</div>
+      <form id="bury-form" class="bury-input-group">
+        <input type="url" id="url-input" name="url" class="bury-input" placeholder="dead url or domain" required pattern="https?://.+">
+        <button type="submit" class="bury-submit" id="bury-btn">Bury a project</button>
+      </form>
+
+      <!-- Bury progress stepper -->
+      <div class="bury-stepper" id="bury-stepper" style="display:none;">
+        <div class="stepper-heading">Digging</div>
+        <div class="stepper-steps">
+          <div class="stepper-step pending" id="step-archaeologist"><div class="stepper-square"></div><span class="stepper-label">Archaeologist</span></div>
+          <div class="stepper-step pending" id="step-exhumer"><div class="stepper-square"></div><span class="stepper-label">Exhumer</span></div>
+          <div class="stepper-step pending" id="step-coroner"><div class="stepper-square"></div><span class="stepper-label">Coroner</span></div>
+          <div class="stepper-step pending" id="step-eulogist"><div class="stepper-square"></div><span class="stepper-label">Eulogist</span></div>
+          <div class="stepper-step pending" id="step-fact-checker"><div class="stepper-square"></div><span class="stepper-label">Fact-checker</span></div>
+        </div>
       </div>
+
+      <div id="bury-progress-msg" style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);margin-top:10px;"></div>
+      <div id="bury-done" style="display:none;margin-top:12px;">
+        <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink);margin-bottom:6px;">The grave is ready.</p>
+        <a id="bury-link" href="#" style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink);text-decoration:underline;">Visit the grave</a>
+      </div>
+      <div id="bury-error" style="display:none;margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--crimson);"></div>
+      <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);margin-top:14px;">Rate limited to 3 submissions per hour.</p>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<p style="font-family:var(--font-mono);font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);text-align:center;padding:4rem 0;">No obituaries yet.</p>
+{% endif %}
+
+<!-- The cemetery (full-width, below columns) -->
+{% if graves %}
+<div class="cemetery-section">
+  <div class="cemetery-heading">The cemetery</div>
+  <div class="cemetery-list">
+    {% for g in graves %}
+    <a href="/grave/{{ g.slug }}" class="cemetery-entry">
+      <span class="cemetery-name">{{ g.name }}</span>
+      <span class="cemetery-meta">{% if g.first_archived and g.last_seen_alive %}{{ g.first_archived[:4] }} &ndash; {{ g.last_seen_alive[:4] }} / {{ (g.cause_label or 'unknown') | replace('_',' ') }}{% endif %}</span>
+      <span class="cemetery-marigolds">{{ g.marigolds }} marigolds</span>
     </a>
     {% endfor %}
   </div>
-  {% else %}
-  <p class="text-center" style="color:var(--text-dim); padding:4rem 0;">The cemetery is empty. Be the first to bury something.</p>
-  {% endif %}
-
-  <!-- Bury a project -->
-  <div class="section-divider" id="bury">
-    <span class="section-divider-text">Bury a Project</span>
-  </div>
-
-  <div class="bury-section">
-    <p style="text-align:center; color:var(--ash); font-style:italic; margin-bottom:1rem;">
-      Know of dead software that deserves a grave? The 5-stage pipeline will investigate and prove its cause of death.
-    </p>
-    <div class="stage-pipeline" style="margin-bottom:2rem;">
-      <div class="stage done"><span>Archaeologist</span></div>
-      <div class="stage-connector"></div>
-      <div class="stage done"><span>Exhumer</span></div>
-      <div class="stage-connector"></div>
-      <div class="stage done"><span>Coroner</span></div>
-      <div class="stage-connector"></div>
-      <div class="stage done"><span>Eulogist</span></div>
-      <div class="stage-connector"></div>
-      <div class="stage done"><span>Fact-checker</span></div>
-    </div>
-
-    <div class="bury-form">
-      <form id="bury-form">
-        <div class="form-group">
-          <label class="form-label" for="url-input">Dead URL or domain</label>
-          <input
-            type="url"
-            id="url-input"
-            name="url"
-            class="form-input"
-            placeholder="https://example.com"
-            required
-            pattern="https?://.+"
-          >
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="name-input">Project name (optional)</label>
-          <input
-            type="text"
-            id="name-input"
-            name="name"
-            class="form-input"
-            placeholder="e.g. Netscape Navigator"
-            maxlength="200"
-          >
-        </div>
-        <button type="submit" class="bury-btn" id="bury-btn">
-          Dig Up &amp; Bury
-        </button>
-      </form>
-
-      <div class="job-progress" id="job-progress">
-        <div id="job-spinner" class="spinner"></div>
-        <span class="job-message" id="job-message">Queued...</span>
-        <div style="margin-top:0.75rem;font-family:var(--font-mono);font-size:0.72rem;color:var(--ash);">
-          Stages: Archaeologist → Exhumer → Coroner → Eulogist → Fact-checker
-        </div>
-      </div>
-
-      <div id="job-done" style="display:none; text-align:center; margin-top:1.5rem;">
-        <p style="color:var(--marigold); font-family:var(--font-serif); font-size:1.1rem; margin-bottom:0.75rem;">The grave is ready.</p>
-        <a id="job-link" href="#" style="font-family:var(--font-mono); font-size:0.9rem;">Visit the grave</a>
-      </div>
-
-      <div id="job-error" style="display:none; text-align:center; margin-top:1.5rem;">
-        <p style="color:#e05555; font-family:var(--font-ui); font-size:0.9rem;" id="job-error-msg">Something went wrong.</p>
-      </div>
-
-      <p class="disclaimer" style="margin-top:1.5rem;">
-        Rate limited to 3 submissions per hour. Submissions use a real browser session via Browserbase.
-      </p>
-    </div>
-  </div>
-
-</main>
+</div>
+{% endif %}
 
 <script>
-const form = document.getElementById('bury-form');
-const btn  = document.getElementById('bury-btn');
-const progress = document.getElementById('job-progress');
-const msgEl    = document.getElementById('job-message');
-const doneEl   = document.getElementById('job-done');
-const linkEl   = document.getElementById('job-link');
-const errorEl  = document.getElementById('job-error');
-const errorMsg = document.getElementById('job-error-msg');
+(function(){
+  const form = document.getElementById('bury-form');
+  const btn = document.getElementById('bury-btn');
+  const msgEl = document.getElementById('bury-progress-msg');
+  const doneEl = document.getElementById('bury-done');
+  const linkEl = document.getElementById('bury-link');
+  const errorEl = document.getElementById('bury-error');
+  const stepperEl = document.getElementById('bury-stepper');
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const url  = document.getElementById('url-input').value;
-  const name = document.getElementById('name-input').value;
-
-  btn.disabled = true;
-  btn.textContent = 'Digging...';
-  progress.style.display = 'block';
-  doneEl.style.display = 'none';
-  errorEl.style.display = 'none';
-  msgEl.textContent = 'Starting...';
-
-  try {
-    const fd = new FormData();
-    fd.append('url', url);
-    if (name) fd.append('name', name);
-
-    const res = await fetch('/bury', { method: 'POST', body: fd });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || 'Submission failed');
+  const steps = ['archaeologist','exhumer','coroner','eulogist','fact-checker'];
+  function setStep(stage){
+    steps.forEach(s=>{
+      const el = document.getElementById('step-'+s);
+      el.className = 'stepper-step pending';
+    });
+    if(stage && document.getElementById('step-'+stage)){
+      document.getElementById('step-'+stage).className = 'stepper-step active';
     }
-    const { job_id } = await res.json();
-    pollJob(job_id);
-  } catch (err) {
-    showError(err.message);
   }
-});
 
-async function pollJob(job_id) {
-  const interval = setInterval(async () => {
-    try {
-      const res  = await fetch(`/job/${job_id}`);
-      const data = await res.json();
-      msgEl.textContent = data.message || 'Working...';
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const url = document.getElementById('url-input').value;
+    btn.disabled = true;
+    btn.textContent = 'Burying&hellip;';
+    stepperEl.style.display = 'block';
+    doneEl.style.display = 'none';
+    errorEl.style.display = 'none';
+    msgEl.textContent = 'Starting&hellip;';
+    steps.forEach(s=>document.getElementById('step-'+s).className='stepper-step pending');
 
-      if (data.status === 'done') {
-        clearInterval(interval);
-        progress.style.display = 'none';
-        doneEl.style.display = 'block';
-        linkEl.href = `/grave/${data.grave_slug}`;
-        linkEl.textContent = `→ Visit ${data.grave_slug}`;
-        btn.disabled = false;
-        btn.textContent = 'Dig Up & Bury';
-        form.reset();
-        // Add card to grid
-        addTombstoneCard(data.grave_slug);
-      } else if (data.status === 'failed') {
-        clearInterval(interval);
-        showError(data.error || data.message || 'Dig failed.');
+    try{
+      const fd = new FormData();
+      fd.append('url', url);
+      const res = await fetch('/bury', {method:'POST', body:fd});
+      if(!res.ok){
+        const data = await res.json();
+        throw new Error(data.detail || 'Submission failed');
       }
-    } catch (err) {
-      clearInterval(interval);
-      showError('Lost connection while digging.');
+      const {job_id} = await res.json();
+      pollJob(job_id);
+    }catch(err){
+      msgEl.textContent = '';
+      errorEl.textContent = err.message;
+      btn.disabled = false;
+      btn.textContent = 'Bury a project';
     }
-  }, 2000);
-}
+  });
 
-function showError(msg) {
-  progress.style.display = 'none';
-  errorEl.style.display = 'block';
-  errorMsg.textContent = msg;
-  btn.disabled = false;
-  btn.textContent = 'Dig Up & Bury';
-}
+  async function pollJob(job_id){
+    const interval = setInterval(async ()=>{
+      try{
+        const res = await fetch('/job/'+job_id);
+        const data = await res.json();
+        msgEl.textContent = (data.message || 'Working&hellip;');
+        if(data.stage) setStep(data.stage);
+        if(data.status === 'done'){
+          clearInterval(interval);
+          stepperEl.style.display = 'none';
+          doneEl.style.display = 'block';
+          linkEl.href = '/grave/'+data.grave_slug;
+          linkEl.textContent = 'Visit '+data.grave_slug;
+          btn.disabled = false;
+          btn.textContent = 'Bury a project';
+          setTimeout(()=>{window.location.reload();},1500);
+        } else if(data.status === 'failed'){
+          clearInterval(interval);
+          stepperEl.style.display = 'none';
+          errorEl.textContent = data.error || data.message || 'Dig failed.';
+          btn.disabled = false;
+          btn.textContent = 'Bury a project';
+        }
+      }catch(err){
+        clearInterval(interval);
+        msgEl.textContent = '';
+        errorEl.textContent = 'Lost connection while digging.';
+        btn.disabled = false;
+        btn.textContent = 'Bury a project';
+      }
+    }, 2000);
+  }
 
-async function addTombstoneCard(slug) {
-  // Refresh the page to show new grave
-  setTimeout(() => { window.location.reload(); }, 1500);
-}
+  // Marigold
+  const mBtn = document.getElementById('marigold-btn');
+  if(mBtn){
+    mBtn.addEventListener('click', async ()=>{
+      const slug = mBtn.dataset.slug;
+      try{
+        const res = await fetch('/marigold/'+slug, {method:'POST'});
+        const data = await res.json();
+        document.getElementById('marigold-count').textContent = data.marigolds;
+      }catch(e){}
+    });
+  }
+
+  // Memory form
+  const memForm = document.getElementById('memory-form');
+  if(memForm){
+    memForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const slug = memForm.dataset.slug;
+      const input = document.getElementById('memory-input');
+      const text = input.value.trim();
+      if(!text) return;
+      try{
+        const fd = new FormData();
+        fd.append('text', text);
+        const res = await fetch('/memory/'+slug, {method:'POST', body:fd});
+        if(!res.ok){ alert('Error leaving memory'); return; }
+        const data = await res.json();
+        location.reload();
+      }catch(e){ console.error(e); }
+    });
+  }
+})();
 </script>
 {% endblock %}

@@ -1,315 +1,341 @@
 {% extends "base.html" %}
 
-{% block title %}{{ grave.name }} -- Graveyard of Dead Software{% endblock %}
-{% block description %}{{ grave.epitaph or ("A grave for " + grave.name) }}{% endblock %}
+{% block title %}{{ grave.name }} -- The Dead Software Obituaries{% endblock %}
+{% block description %}{{ grave.epitaph or ("An obituary for " + grave.name) }}{% endblock %}
 
 {% block content %}
-<main>
 
-  <!-- Hero -->
-  <div class="grave-hero container">
-    <p class="grave-rip">R . I . P .</p>
-    <h1 class="grave-name">{{ grave.name }}</h1>
-    <p class="grave-dates">
-      {% if grave.first_archived %}First archived: <strong>{{ grave.first_archived }}</strong>{% endif %}
-      {% if grave.first_archived and grave.last_seen_alive %} &nbsp;&middot;&nbsp; {% endif %}
-      {% if grave.last_seen_alive %}Last seen alive: <strong>{{ grave.last_seen_alive }}</strong>{% endif %}
-    </p>
-    {% if grave.epitaph %}
-    <p class="grave-epitaph">"{{ grave.epitaph }}"</p>
-    {% endif %}
+<div class="two-column" id="obituary-page">
+  <div class="main-col">
+    <div class="col-rule" aria-hidden="true"></div>
 
-    <!-- Marigold -->
-    <div class="marigold-section">
-      <button class="marigold-btn" id="marigold-btn" onclick="leaveMarigold()">
-        <span aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 2c1.5 2 3 3 5 3-1 2-2.5 3-4 4 1 1.5 1.5 3 1 5-2-1-3.5-2.5-5-4-1.5 1.5-3 3-5 4 0-2 .5-3.5 1.5-5-1.5-1-3-2-4-4 2 0 3.5-1 5-3z" fill="currentColor"/></svg>
-        </span>
-        <span>Leave a Marigold</span>
-      </button>
-      <p class="marigold-total" id="marigold-total">
-        {{ grave.marigolds }} marigold{% if grave.marigolds != 1 %}s{% endif %} left here
-      </p>
-    </div>
-
-    <p class="disclaimer">
-      Warning: Written by AI from archived pages. Details may be wrong. Causes of death marked "Likely" are evidence-based estimates.
-    </p>
-
-    <a href="/" class="back-link">Back to the cemetery</a>
-  </div>
-
-  <!-- Stage progress bar -->
-  <div class="container stage-pipeline">
-    <div class="stage done"><span>Archaeologist</span></div>
-    <div class="stage-connector"></div>
-    <div class="stage done"><span>Exhumer</span></div>
-    <div class="stage-connector"></div>
-    <div class="stage done"><span>Coroner</span></div>
-    <div class="stage-connector"></div>
-    <div class="stage done"><span>Eulogist</span></div>
-    <div class="stage-connector"></div>
-    <div class="stage done"><span>Fact-checker</span></div>
-  </div>
-
-  <!-- Lifeline chart (inline SVG sparkline) -->
-  {% if lifeline %}
-  <div class="container">
-    <div class="grave-panel lifeline-panel">
-      <h3>Archive Lifeline</h3>
-      <p class="panel-sub">Monthly snapshots per year in the Wayback Machine &mdash; the rise and fall of {{ grave.name }}</p>
-      {% set items = lifeline.items() | sort %}
-      {% set max_val = lifeline.values() | max %}
-      {% set min_val = lifeline.values() | min %}
-      {% set total_items = items | length %}
-      {% set step_x = (640 / (total_items - 1)) if total_items > 1 else 320 %}
-      <svg class="lifeline-sparkline" viewBox="0 0 700 140" role="img" aria-label="Archive lifeline sparkline">
-        <polyline points="
-          {% for year, count in items %}
-            {{ (30 + loop.index0 * step_x) | round(1) }},{{ (120 - ((count - min_val) / (max_val - min_val + 1) * 100)) | round(1) if max_val > min_val else 60 }}
-          {% endfor %}
-        " fill="none" stroke="var(--marigold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        {% for year, count in items %}
-        <circle cx="{{ (30 + loop.index0 * step_x) | round(1) }}" cy="{{ (120 - ((count - min_val) / (max_val - min_val + 1) * 100)) | round(1) if max_val > min_val else 60 }}" r="3" fill="var(--marigold)"/>
-        {% endfor %}
-      </svg>
-      <div class="lifeline-axes" style="font-family:var(--font-mono); font-size:0.7rem; color:var(--ash); display:flex; justify-content:space-between; margin-top:0.4rem;">
-        <span>{{ items[0].0 }}</span>
-        <span>peak: {{ max_val }}</span>
-        <span>{{ items[-1].0 }}</span>
-      </div>
-      <p class="lifeline-note">Peak: {{ max_val }} capture-months/year &middot; Total years: {{ lifeline | length }}</p>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Content grid -->
-  <div class="grave-content">
-
-    <!-- Eulogy (verified) -->
-    <div class="grave-panel">
-      <h3>Eulogy</h3>
-      <p class="grave-eulogy">
-        {{ grave.eulogy_verified or grave.eulogy or "Little is left of it -- the archive holds only silence." }}
-      </p>
-      <p class="eulogy-credit" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--ash); margin-top:0.75rem;">
-        Eulogy written by {{ grave.llm_model or 'Gemma' }}
-      </p>
-      {% if grave.unsupported_before is not none and grave.unsupported_before > 0 %}
-      <div class="factcheck-badge">
-        Fact-checked: {{ grave.unsupported_before }} unsupported claim{% if grave.unsupported_before != 1 %}s{% endif %} removed
-      </div>
-      {% elif grave.unsupported_before == 0 %}
-      <div class="factcheck-badge factcheck-clean">
-        Fact-checked: all claims supported
-      </div>
+    <!-- Kicker row -->
+    <div class="kicker-row">
+      <span class="kicker-tag">Obituary</span>
+      {% if attempts %}
+      {% set _attempts = attempts | fromjson if attempts is string else attempts %}
+      {% if _attempts | length > 0 %}
+      <span class="kicker-line">Dug up from the Wayback Machine / {{ _attempts | length }} snapshots walked back</span>
+      {% endif %}
       {% endif %}
     </div>
 
-    <!-- Right column: screenshot, cause, sources -->
-    <div>
+    <!-- Headline -->
+    <h1 class="obituary-headline">
+      {{ grave.name }},
+      {% if grave.first_archived %}{{ grave.first_archived[:4] }}{% else %}?{% endif %}
+      &ndash;
+      {% if grave.last_seen_alive %}{{ grave.last_seen_alive[:4] }}{% else %}?{% endif %}
+    </h1>
 
-      <!-- Screenshot -->
-      <div class="grave-panel" style="margin-bottom:2rem;">
-        <h3>Last Known Appearance</h3>
+    <!-- Deck -->
+    {% if grave.epitaph %}
+    <p class="deck">{{ grave.epitaph }}</p>
+    {% endif %}
+
+    <!-- Archive grid -->
+    <div class="archive-grid">
+      <!-- Archive frame -->
+      <div class="archive-frame{% if not grave.screenshot_path %} no-screenshot{% endif %}">
+        <div class="frame-titlebar">
+          <div class="frame-controls">
+            <button class="frame-control" aria-label="minimize"></button>
+            <button class="frame-control" aria-label="maximize"></button>
+            <button class="frame-control" aria-label="close"></button>
+          </div>
+          <div class="frame-url">
+            web.archive.org / {% if grave.first_archived %}{{ grave.first_archived[:4] }}{% else %}?{% endif %} / {% if grave.url %}{{ grave.url | replace('https://','') | replace('http://','') }}{% endif %}
+          </div>
+        </div>
         {% if grave.screenshot_path %}
-          <img src="{{ grave.screenshot_path }}"
-               alt="Screenshot of {{ grave.name }} from the Wayback Machine"
-               class="grave-screenshot" loading="lazy">
+          <img src="{{ grave.screenshot_path }}" alt="Screenshot of {{ grave.name }} from the Wayback Machine" class="frame-image" loading="lazy">
         {% else %}
-          <div class="screenshot-placeholder">No screenshot captured</div>
+          <div class="frame-caption">
+            <span class="caption-label">No archived capture available.</span>
+          </div>
         {% endif %}
-
-        {% if grave.replay_url %}
-        <a href="{{ grave.replay_url }}" target="_blank" rel="noopener noreferrer" class="replay-link">
-          Watch the exhumation replay
-        </a>
-        {% endif %}
+        <div class="frame-caption">
+          <span class="caption-label">Last archived page</span>
+          {% if grave.replay_url %}
+          <a href="{{ grave.replay_url }}" target="_blank" rel="noopener" class="caption-link">Watch the exhumation</a>
+          {% endif %}
+        </div>
       </div>
 
-      <!-- Cause of death -->
-      <div class="grave-panel" style="margin-bottom:2rem;">
-        <h3>Cause of Death</h3>
-        <div class="cause-of-death">
-          {% if grave.cause_label %}
-          <span class="badge badge-cause badge-{{ grave.cause_label }}">{{ grave.cause_label | replace('_', ' ') | title }}</span>&ensp;
-          {% elif grave.cause_is_rumored %}
-          <span class="badge badge-rumored">Likely</span>&ensp;
-          {% endif %}
-          {{ grave.cause_of_death or "Unknown" }}
-        </div>
-
-        {% if evidence %}
-        <div class="evidence-list">
-          <p class="evidence-title">Evidence signals:</p>
-          {% for sig in evidence %}
-          <div class="evidence-item">• {{ sig }}</div>
+      <!-- Cause card -->
+      <div class="cause-card">
+        <div class="cause-heading">Likely cause of death</div>
+        <div class="cause-stamp">{{ (grave.cause_label or 'unknown') | replace('_',' ') | title }}</div>
+        {% if grave.cause_evidence %}
+        {% set _ev = grave.cause_evidence | fromjson if grave.cause_evidence is string else grave.cause_evidence %}
+        {% if _ev %}
+        <div class="cause-evidence">
+          {% for e in _ev %}
+          {{ e }}
           {% endfor %}
         </div>
         {% endif %}
-
-        {% if grave.survived_by %}
-        <h3 style="margin-top:1.5rem;margin-bottom:0.5rem;">Survived By</h3>
-        <p class="survived-by">{{ grave.survived_by }}</p>
         {% endif %}
       </div>
-
-      <!-- Sources -->
-      <div class="grave-panel sources-panel">
-        <h3>Sources</h3>
-        <div class="sources-list">
-          {% if grave.first_archive_url %}
-          <a href="{{ grave.first_archive_url }}" target="_blank" rel="noopener" class="source-link">
-            First snapshot
-          </a>
-          {% endif %}
-          {% if grave.archive_url %}
-          <a href="{{ grave.archive_url }}" target="_blank" rel="noopener" class="source-link">
-            Last snapshot
-          </a>
-          {% endif %}
-          {% if grave.replay_url %}
-          <a href="{{ grave.replay_url }}" target="_blank" rel="noopener" class="source-link">
-            Browserbase replay
-          </a>
-          {% endif %}
-        </div>
-        <p style="margin-top:0.75rem;font-family:var(--font-ui);font-size:0.8rem;color:var(--text-dim);">
-          URL: <code style="color:var(--text-mid);word-break:break-all;">{{ grave.url }}</code>
-        </p>
-      </div>
-
     </div>
-  </div>
 
-  <!-- Exhumer walk-back attempts -->
-  {% if attempts | length > 1 %}
-  <div class="container" style="margin-bottom:2rem;">
-    <div class="grave-panel">
-      <h3>Exhumation Log <span class="badge" style="margin-left:0.5rem;">{{ attempts | length }} snapshots tried</span></h3>
-      <table class="attempts-table">
-        <thead><tr><th>Timestamp</th><th>Chars</th><th>Usable</th><th>Secs</th><th>Error</th></tr></thead>
-        <tbody>
-        {% for a in attempts %}
-        <tr class="{{ "row-ok" if a.ok else "row-bad" }}">
-          <td><a href="{{ a.link }}" target="_blank" rel="noopener">{{ a.ts }}</a></td>
-          <td>{{ a.chars }}</td>
-          <td>{{ "OK" if a.ok else "FAIL" }}</td>
-          <td>{{ a.secs }}s</td>
-          <td>{{ a.error or "" }}</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+    <!-- Eulogy -->
+    <div class="eulogy-section">
+      {% set _eulogy = grave.eulogy_verified or grave.eulogy or "Little is left of it &mdash; the archive holds only silence." %}
+      <div class="eulogy-body drop-cap">{{ _eulogy }}</div>
+      <div class="eulogy-meta" style="font-family: var(--font-data); font-size: 0.75rem; color: var(--ash); margin-top: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase;">Eulogy written by {{ grave.llm_model or 'gemini-flash-lite-latest' }}</div>
     </div>
-  </div>
-  {% endif %}
 
-  <!-- Fact-checker claims -->
-  {% if claims %}
-  <div class="container" style="margin-bottom:2rem;">
-    <div class="grave-panel">
-      <h3>Fact-Check Claims</h3>
-      <p class="panel-sub">Every factual claim in the eulogy, verified against the archived source.</p>
-      <div class="claims-list">
-        {% for c in claims %}
-        <div class="claim-item {{ "claim-ok" if c.supported else "claim-bad" }}">
-          <span class="claim-status">{{ "OK" if c.supported else "FAIL" }}</span>
-          <div>
-            <div class="claim-text">{{ c.claim }} {% if c.evidence_id %}[{{ c.evidence_id }}]{% endif %}</div>
-            {% if c.quote %}
-            <div class="claim-quote">Source: "{{ c.quote }}"</div>
-            {% endif %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
+    <!-- Claims line -->
+    {% if claims %}
+    {% set _claims = claims | fromjson if claims is string else claims %}
+    {% if _claims %}
+    <div class="claims-line">
+      {% set _supported = _claims | selectattr('supported') | list %}
+      {% set _removed = _claims | rejectattr('supported') | list %}
+      {% for c in _supported %}
+      <span class="supported" title="{{ c.quote or '' }}">{{ c.claim }}</span>
+      {% endfor %}
+      {% for c in _removed %}
+      <span class="removed">{{ c.claim }}</span>
+      {% endfor %}
+      <span class="counts">{{ _supported | length }} supported &middot; {{ _removed | length }} removed</span>
     </div>
-  </div>
-  {% endif %}
+    {% endif %}
+    {% endif %}
 
-  <!-- Visitor memories -->
-  <div class="container" style="margin-bottom:4rem;">
-    <div class="grave-panel">
-      <h3>Visitor Memories</h3>
-      <p class="panel-sub">Leave a memory of {{ grave.name }} (500 chars, rate-limited).</p>
-      <form id="memory-form" style="display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
-        <input type="text" id="memory-input" maxlength="500" placeholder="I remember when..."
-               class="form-input" style="flex:1;min-width:200px;">
-        <button type="submit" class="bury-btn" style="width:auto;padding:0.75rem 1.5rem;">
-          Leave Memory
-        </button>
-      </form>
-      <div id="memories-list">
-        {% for m in memories %}
-        <div class="memory-item">
+    <!-- Survived by -->
+    {% if grave.survived_by %}
+    <p class="survived-by">{{ grave.survived_by }}</p>
+    {% endif %}
+
+    <!-- Memories -->
+    <div class="memories-section">
+      {% set _memories = memories | fromjson if memories is string else memories %}
+      {% if _memories %}
+      <ul>
+        {% for m in _memories %}
+        <li class="memory-entry">
           <span class="memory-text">{{ m.text }}</span>
-          <span class="memory-date">{{ m.ts }}</span>
-        </div>
-        {% else %}
-        <p style="color:var(--text-dim);font-style:italic;font-size:0.9rem;">No memories yet. Be the first.</p>
+          <span class="memory-ts">{{ m.ts }}</span>
+        </li>
         {% endfor %}
-      </div>
+      </ul>
+      {% else %}
+      <p style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);">No memories yet.</p>
+      {% endif %}
+
+      <!-- Memory form -->
+      <form id="memory-form" class="memory-form" data-slug="{{ grave.slug }}">
+        <input type="text" id="memory-input" name="text" maxlength="500" placeholder="Leave a memory" class="memory-input">
+        <button type="submit" class="memory-submit">Leave</button>
+      </form>
+      <div id="memories-result"></div>
     </div>
   </div>
 
-</main>
+  <div class="sidebar">
+    <!-- Lifeline -->
+    {% if lifeline %}
+    {% set _life = lifeline | fromjson if lifeline is string else lifeline %}
+    {% if _life %}
+    <div class="sidebar-box">
+      <div class="sidebar-heading">Lifeline / months archived per year</div>
+      <div class="lifeline-bars">
+        {% set _years = _life.keys() | list | sort %}
+        {% set _max = _life.values() | max %}
+        {% set _first = _years[0] %}
+        {% set _last = _years[-1] %}
+        {% for y in _years %}
+        {% set _pct = (_life[y] / _max * 100) if _max > 0 else 0 %}
+        <div class="lifeline-bar" style="left:{{ loop.index0 * 100 / (_years | length) }}%; width:8px; height:{{ _pct }}%;"></div>
+        {% endfor %}
+        <span class="lifeline-label first">{{ _first }}</span>
+        <span class="lifeline-label last">{{ _last }}</span>
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Sources -->
+    <div class="sidebar-box">
+      <div class="sidebar-heading">Sources</div>
+      <ul class="sources-list">
+        {% if grave.first_archive_url %}
+        <li><a href="{{ grave.first_archive_url }}" target="_blank" rel="noopener" class="source-row">First capture<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
+        {% endif %}
+        {% if grave.archive_url %}
+        <li><a href="{{ grave.archive_url }}" target="_blank" rel="noopener" class="source-row">Last capture<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
+        {% endif %}
+        {% if grave.replay_url %}
+        <li><a href="{{ grave.replay_url }}" target="_blank" rel="noopener" class="source-row">Session replay<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <!-- Marigold button -->
+    <button class="marigold-btn-box" id="marigold-btn" data-slug="{{ grave.slug }}" aria-label="Leave a marigold for {{ grave.name }}">
+      <svg class="marigold-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+        <ellipse class="marigold-petal" cx="12" cy="4" rx="2.5" ry="6"/>
+        <ellipse class="marigold-petal" cx="20" cy="12" rx="6" ry="2.5"/>
+        <ellipse class="marigold-petal" cx="12" cy="20" rx="2.5" ry="6"/>
+        <ellipse class="marigold-petal" cx="4" cy="12" rx="6" ry="2.5"/>
+        <ellipse class="marigold-petal" cx="8" cy="8" rx="3" ry="3" transform="rotate(45 8 8)"/>
+        <ellipse class="marigold-petal" cx="16" cy="16" rx="3" ry="3" transform="rotate(45 16 16)"/>
+        <ellipse class="marigold-petal" cx="8" cy="16" rx="3" ry="3" transform="rotate(-45 8 16)"/>
+        <ellipse class="marigold-petal" cx="16" cy="8" rx="3" ry="3" transform="rotate(-45 16 8)"/>
+        <circle class="marigold-center" cx="12" cy="12" r="2.5"/>
+      </svg>
+      <span>Leave a marigold</span>
+      <span id="marigold-count">{{ grave.marigolds }}</span>
+    </button>
+
+    <!-- Bury form -->
+    <div class="sidebar-box bury-form-box">
+      <div class="bury-heading">Know a project that died?</div>
+      <form id="bury-form" class="bury-input-group">
+        <input type="url" id="url-input" name="url" class="bury-input" placeholder="dead url or domain" required pattern="https?://.+">
+        <button type="submit" class="bury-submit" id="bury-btn">Bury a project</button>
+      </form>
+
+      <!-- Bury progress stepper -->
+      <div class="bury-stepper" id="bury-stepper" style="display:none;">
+        <div class="stepper-heading">Digging</div>
+        <div class="stepper-steps">
+          <div class="stepper-step pending" id="step-archaeologist"><div class="stepper-square"></div><span class="stepper-label">Archaeologist</span></div>
+          <div class="stepper-step pending" id="step-exhumer"><div class="stepper-square"></div><span class="stepper-label">Exhumer</span></div>
+          <div class="stepper-step pending" id="step-coroner"><div class="stepper-square"></div><span class="stepper-label">Coroner</span></div>
+          <div class="stepper-step pending" id="step-eulogist"><div class="stepper-square"></div><span class="stepper-label">Eulogist</span></div>
+          <div class="stepper-step pending" id="step-fact-checker"><div class="stepper-square"></div><span class="stepper-label">Fact-checker</span></div>
+        </div>
+      </div>
+
+      <div id="bury-progress-msg" style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);margin-top:10px;"></div>
+      <div id="bury-done" style="display:none;margin-top:12px;">
+        <p style="font-family:var(--font-serif);font-size:15px;color:var(--ink);margin-bottom:6px;">The grave is ready.</p>
+        <a id="bury-link" href="#" style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink);text-decoration:underline;">Visit the grave</a>
+      </div>
+      <div id="bury-error" style="display:none;margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--crimson);"></div>
+      <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);margin-top:14px;">Rate limited to 3 submissions per hour.</p>
+    </div>
+  </div>
+</div>
 
 <script>
-let marigolds = {{ grave.marigolds }};
-let voted = false;
+(function(){
+  const form = document.getElementById('bury-form');
+  const btn = document.getElementById('bury-btn');
+  const msgEl = document.getElementById('bury-progress-msg');
+  const doneEl = document.getElementById('bury-done');
+  const linkEl = document.getElementById('bury-link');
+  const errorEl = document.getElementById('bury-error');
+  const stepperEl = document.getElementById('bury-stepper');
 
-async function leaveMarigold() {
-  if (voted) return;
-  voted = true;
-  const btn = document.getElementById('marigold-btn');
-  btn.disabled = true;
-  const flower = btn.querySelector('span:first-child');
-  flower.style.transform = 'scale(1.5)';
-  flower.style.transition = 'transform 0.3s';
-  setTimeout(() => { flower.style.transform = 'scale(1)'; }, 300);
-    try {
-      const res = await fetch('/marigold/{{ grave.slug }}', { method: 'POST' });
-      const data = await res.json();
-      marigolds = data.marigolds;
-      document.getElementById('marigold-total').textContent =
-        ${marigolds} marigold left here;
-      btn.innerHTML = '<span>Marigold left</span>';
-      btn.style.borderColor = 'var(--marigold)';
-      btn.style.color = 'var(--ink)';
-  } catch (err) {
-    voted = false;
-    btn.disabled = false;
+  const steps = ['archaeologist','exhumer','coroner','eulogist','fact-checker'];
+  function setStep(stage){
+    steps.forEach(s=>{
+      const el = document.getElementById('step-'+s);
+      el.className = 'stepper-step pending';
+    });
+    if(stage && document.getElementById('step-'+stage)){
+      document.getElementById('step-'+stage).className = 'stepper-step active';
+    }
   }
-}
 
-// Memory form
-document.getElementById('memory-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const text = document.getElementById('memory-input').value.trim();
-  if (!text) return;
-  try {
-    const fd = new FormData();
-    fd.append('text', text);
-    const res = await fetch('/memory/{{ grave.slug }}', { method: 'POST', body: fd });
-    if (!res.ok) {
-      const d = await res.json();
-      alert(d.detail || 'Error leaving memory');
-      return;
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const url = document.getElementById('url-input').value;
+    btn.disabled = true;
+    btn.textContent = 'Burying&hellip;';
+    stepperEl.style.display = 'block';
+    doneEl.style.display = 'none';
+    errorEl.style.display = 'none';
+    msgEl.textContent = 'Starting&hellip;';
+    steps.forEach(s=>document.getElementById('step-'+s).className='stepper-step pending');
+
+    try{
+      const fd = new FormData();
+      fd.append('url', url);
+      const res = await fetch('/bury', {method:'POST', body:fd});
+      if(!res.ok){
+        const data = await res.json();
+        throw new Error(data.detail || 'Submission failed');
+      }
+      const {job_id} = await res.json();
+      pollJob(job_id);
+    }catch(err){
+      msgEl.textContent = '';
+      errorEl.textContent = err.message;
+      btn.disabled = false;
+      btn.textContent = 'Bury a project';
     }
-    const data = await res.json();
-    const list = document.getElementById('memories-list');
-    list.innerHTML = '';
-    for (const m of data.memories) {
-      const div = document.createElement('div');
-      div.className = 'memory-item';
-      div.innerHTML = <span class="memory-text"></span><span class="memory-date"></span>;
-      list.appendChild(div);
-    }
-    document.getElementById('memory-input').value = '';
-  } catch (err) {
-    console.error(err);
+  });
+
+  async function pollJob(job_id){
+    const interval = setInterval(async ()=>{
+      try{
+        const res = await fetch('/job/'+job_id);
+        const data = await res.json();
+        msgEl.textContent = (data.message || 'Working&hellip;');
+        if(data.stage) setStep(data.stage);
+        if(data.status === 'done'){
+          clearInterval(interval);
+          stepperEl.style.display = 'none';
+          doneEl.style.display = 'block';
+          linkEl.href = '/grave/'+data.grave_slug;
+          linkEl.textContent = 'Visit '+data.grave_slug;
+          btn.disabled = false;
+          btn.textContent = 'Bury a project';
+          setTimeout(()=>{window.location.reload();},1500);
+        } else if(data.status === 'failed'){
+          clearInterval(interval);
+          stepperEl.style.display = 'none';
+          errorEl.textContent = data.error || data.message || 'Dig failed.';
+          btn.disabled = false;
+          btn.textContent = 'Bury a project';
+        }
+      }catch(err){
+        clearInterval(interval);
+        msgEl.textContent = '';
+        errorEl.textContent = 'Lost connection while digging.';
+        btn.disabled = false;
+        btn.textContent = 'Bury a project';
+      }
+    }, 2000);
   }
-});
+
+  // Marigold
+  const mBtn = document.getElementById('marigold-btn');
+  if(mBtn){
+    mBtn.addEventListener('click', async ()=>{
+      const slug = mBtn.dataset.slug;
+      try{
+        const res = await fetch('/marigold/'+slug, {method:'POST'});
+        const data = await res.json();
+        document.getElementById('marigold-count').textContent = data.marigolds;
+      }catch(e){}
+    });
+  }
+
+  // Memory form
+  const memForm = document.getElementById('memory-form');
+  if(memForm){
+    memForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const slug = memForm.dataset.slug;
+      const input = document.getElementById('memory-input');
+      const text = input.value.trim();
+      if(!text) return;
+      try{
+        const fd = new FormData();
+        fd.append('text', text);
+        const res = await fetch('/memory/'+slug, {method:'POST', body:fd});
+        if(!res.ok){ alert('Error leaving memory'); return; }
+        const data = await res.json();
+        location.reload();
+      }catch(e){ console.error(e); }
+    });
+  }
+})();
 </script>
 {% endblock %}

@@ -13,7 +13,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemma-3-27b-it
+        value: gemini-flash-lite-latest
       - key: OLLAMA_HOST
         value: http://localhost:11434
       - key: OLLAMA_MODEL
@@ -21,7 +21,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
-        value: llama-3.1-8b-instant
+        value: qwen/qwen3.8-27b
       - key: BROWSERBASE_API_KEY
         sync: false
       - key: BROWSERBASE_PROJECT_ID

@@ -3,55 +3,71 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Graveyard of Dead Software{% endblock %}</title>
-  <meta name="description" content="{% block description %}A public cemetery for dead software, apps, and websites -- exhumed from the Wayback Machine, eulogized by Gemma.{% endblock %}">
+  <title>{% block title %}The Dead Software Obituaries{% endblock %}</title>
+  <meta name="description" content="{% block description %}A newspaper obituary page for dead software, exhumed from the Wayback Machine.{% endblock %}">
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230E0C0A'/><path d='M50 20 L70 70 L30 70 Z' fill='%23F2A22A'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2314110D'/><path d='M50 20 L70 70 L30 70 Z' fill='%23E8920F'/></svg>">
 </head>
 <body>
-  <!-- Papel picado banner -->
-  <div class="papel-picado" aria-hidden="true">
-    <svg class="flag marigold" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
-    <svg class="flag ember" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
-    <svg class="flag marigold" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
-    <svg class="flag ember" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
-    <svg class="flag marigold" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
-    <svg class="flag ember" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
-    <svg class="flag marigold" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
-    <svg class="flag ember" viewBox="0 0 40 40"><polygon points="20,0 35,20 20,40 5,20"/></svg>
+  <div class="page-frame">
+
+    <!-- Top strip -->
+    <div class="top-strip">
+      <div class="strip-left">Vol. I &middot; Night of the Dead edition &middot; Graveyard of Dead Software</div>
+      <div class="strip-right">Free to bury &middot; Written by AI from archived pages</div>
+    </div>
+
+    <!-- Masthead -->
+    <div class="masthead">
+      <h1 class="masthead-title">The Dead <span class="software">Software</span> Obituaries</h1>
+    </div>
+
+    <!-- Nav -->
+    <nav class="nav">
+      <ul class="nav-links">
+        <li><a href="/" class="{% if request.url.path == '/' %}current{% endif %}">Today&rsquo;s obituary</a></li>
+        <li><a href="/" class="{% if request.url.path == '/' %}current{% endif %}">The cemetery</a></li>
+        <li><a href="/benchmark" class="{% if request.url.path == '/benchmark' %}current{% endif %}">Benchmark</a></li>
+        <li><a href="#bury" class="{% if request.url.path == '/bury' %}current{% endif %}">Bury a project</a></li>
+      </ul>
+    </nav>
+
+    <!-- Papel picado banner -->
+    <div class="papel-picado" aria-hidden="true">
+      <div class="flag-strip">
+        {% for i in range(40) %}
+          {% set color_idx = loop.index0 % 3 %}
+          <svg viewBox="0 0 55 44" preserveAspectRatio="none">
+            <path d="M0 0 H55 V34 L48 44 L41 34 L34 44 L27 34 L20 44 L13 34 L6 44 L0 38 Z"
+                  class="{% if color_idx == 0 %}fill-m{% elif color_idx == 1 %}fill-e{% else %}fill-i{% endif %}"/>
+            <!-- paper cut-outs: one circle top center, two small diamonds each side -->
+            <circle cx="27.5" cy="4" r="3" class="cutout"/>
+            <path d="M12 12 L16 16 L12 20 L8 16 Z" class="cutout"/>
+            <path d="M43 12 L47 16 L43 20 L39 16 Z" class="cutout"/>
+          </svg>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <!-- Falling marigold petals -->
+    <div class="petals-container" aria-hidden="true" id="petals-container"></div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="footer-left">Causes of death are &lsquo;likely.&rsquo; Dates mean &lsquo;last seen in the archive.&rsquo;</div>
+      <div class="footer-right">Runs on open weights</div>
+    </footer>
+
   </div>
-
-  <nav class="nav">
-    <a href="/" class="nav-brand">
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L20 20 L4 20 Z" fill="currentColor"/></svg>
-      Graveyard of Dead Software
-    </a>
-    <ul class="nav-links">
-      <li><a href="/">Cemetery</a></li>
-      <li><a href="/benchmark">Benchmark</a></li>
-      <li><a href="#bury">Bury a Project</a></li>
-    </ul>
-  </nav>
-
-  {% block content %}{% endblock %}
-
-  <!-- Falling marigold petals -->
-  <div class="petals-container" aria-hidden="true" id="petals-container"></div>
-
-  <div class="fog-layer"></div>
-
-  <div class="grain" aria-hidden="true"></div>
-  <footer class="site-footer">
-    <p>Run on open weights &mdash; it cannot die. &middot; Powered by Gemma &amp; Browserbase &middot; All dates via Wayback Machine</p>
-    <p>Warning: Written by AI from archived pages. Details may be wrong.</p>
-  </footer>
 
   <script>
   (function() {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const container = document.getElementById('petals-container');
     if (!container) return;
-    const svg = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2c1.5 2 3 3 5 3-1 2-2.5 3-4 4 1 1.5 1.5 3 1 5-2-1-3.5-2.5-5-4-1.5 1.5-3 3-5 4 0-2 .5-3.5 1.5-5-1.5-1-3-2-4-4 2 0 3.5-1 5-3z" fill="var(--marigold)"/></svg>';
+    const svg = '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M12 2c1.5 2 3 3 5 3-1 2-2.5 3-4 4 1 1.5 1.5 3 1 5-2-1-3.5-2.5-5-4-1.5 1.5-3 3-5 4 0-2 .5-3.5 1.5-5-1.5-1-3-2-4-4 2 0 3.5-1 5-3z" fill="currentColor"/></svg>';
     function spawnPetal(){
       const el = document.createElement('div');
       el.className = 'petal';
@@ -59,7 +75,6 @@
       el.style.left = Math.random()*100 + 'vw';
       el.style.animationDuration = (6 + Math.random()*8) + 's';
       el.style.animationDelay = (Math.random()*4) + 's';
-      el.style.opacity = 0.4 + Math.random()*0.4;
       container.appendChild(el);
       setTimeout(()=>el.remove(),15000);
     }

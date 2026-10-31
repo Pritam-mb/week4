@@ -111,12 +111,12 @@ async def traced_tool_async(name: str, args: dict, coro):
 
 BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 GROQ_API_KEY        = os.getenv("GROQ_API_KEY", "")
-LLM_PROVIDER        = os.getenv("LLM_PROVIDER") or os.getenv("GEMMA_PROVIDER") or "groq"
+LLM_PROVIDER        = os.getenv("LLM_PROVIDER") or os.getenv("GEMMA_PROVIDER") or "gemini"
 GEMINI_API_KEY      = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL        = os.getenv("GEMINI_MODEL", "gemma-3-27b-it")
+GEMINI_MODEL        = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
 OLLAMA_HOST         = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL", "gemma3")
-GROQ_MODEL          = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+GROQ_MODEL          = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 # ─── Screenshot output dir ────────────────────────────────────────────────────
 SCREENSHOTS_DIR = Path(__file__).parent / "static" / "screenshots"
@@ -150,7 +150,8 @@ BAD_MARKERS = [
     "this domain is for sale", "parked by", "this page is no longer",
     "site unavailable", "error 404", "403 forbidden",
     "got an http 302 response", "got an http 301 response",
-    "redirecting to...",
+    "redirecting to...", "too many requests", "error 429",
+    "service temporarily unavailable", "all connection attempts failed",
 ]
 
 def usable(text: str, fields_filled: int = 0) -> bool:
@@ -200,7 +201,7 @@ def is_ssrf_safe(url: str) -> bool:
         return False
     return True
 
-CDX_BASE = "http://web.archive.org/cdx/search/cdx"
+CDX_BASE = "https://web.archive.org/cdx/search/cdx"
 WAYBACK_TIMEOUT = 15.0
 WAYBACK_RETRIES = 2
 
@@ -209,8 +210,8 @@ async def _cdx_fetch_inner(url: str, params: dict) -> list:
     """Fetch CDX with 15s timeout and 2 retries. Returns raw rows (excluding header)."""
     last_err = None
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-    timeout = 6.0 if params.get("collapse") else WAYBACK_TIMEOUT
-    max_retries = 0 if params.get("collapse") else WAYBACK_RETRIES
+    timeout = WAYBACK_TIMEOUT
+    max_retries = WAYBACK_RETRIES
     for attempt in range(max_retries + 1):
         try:
             async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
@@ -223,9 +224,8 @@ async def _cdx_fetch_inner(url: str, params: dict) -> list:
             last_err = e
             logger.warning(f"CDX attempt {attempt+1} failed for {url}: {e}")
             if attempt < max_retries:
-                await asyncio.sleep(1.0 * (attempt + 1))
-    if not params.get("collapse"):
-        logger.error(f"CDX failed after {max_retries + 1} attempts for {url}: {last_err}")
+                await asyncio.sleep(2.0 * (attempt + 1))
+    logger.error(f"CDX failed after {max_retries + 1} attempts for {url}: {last_err}")
     return []
 
 
@@ -250,28 +250,42 @@ async def cdx_has_captures(domain_or_url: str) -> bool:
     return len(rows) > 0
 
 
-async def wayback_snapshots(url: str, n: int = 500) -> list[dict]:
-    """Return snapshots across full archive history, oldest first."""
+async def wayback_snapshots(
+    url: str, n: int = 500, from_year: int | None = None, to_year: int | None = None
+) -> list[dict]:
+    """Return snapshots across archive history bounded by lifetime, oldest first."""
     clean = re.sub(r"^https?://(?:www\.)?", "", url.strip()).rstrip("/")
-    rows = await _cdx_fetch(clean, {
+    params = {
         "url": clean, "output": "json",
         "fl": "timestamp,original,statuscode",
         "collapse": "timestamp:6",
         "filter": "!statuscode:[45]..",
-    })
+    }
+    if from_year:
+        params["from"] = f"{from_year}0101"
+    if to_year:
+        params["to"] = f"{to_year + 1}1231"
+
+    rows = await _cdx_fetch(clean, params)
     if not rows:
         # Fallback for huge domains where server-side collapse times out (e.g. geocities)
-        old_rows = await _cdx_fetch(clean, {
-            "url": clean, "output": "json",
-            "fl": "timestamp,original,statuscode",
-            "limit": "200",
-        })
-        new_rows = await _cdx_fetch(clean, {
-            "url": clean, "output": "json",
-            "fl": "timestamp,original,statuscode",
-            "limit": "-100",
-        })
-        rows = old_rows + new_rows
+        death_params = {"url": clean, "output": "json", "fl": "timestamp,original,statuscode", "collapse": "timestamp:6"}
+        if to_year:
+            death_params["from"] = f"{max(1995, to_year - 2)}0101"
+            death_params["to"] = f"{to_year + 1}1231"
+        else:
+            death_params["limit"] = "-100"
+        death_rows = await _cdx_fetch(clean, death_params)
+
+        launch_params = {"url": clean, "output": "json", "fl": "timestamp,original,statuscode", "collapse": "timestamp:6"}
+        if from_year:
+            launch_params["from"] = f"{from_year}0101"
+            launch_params["to"] = f"{from_year + 2}1231"
+        else:
+            launch_params["limit"] = "100"
+        launch_rows = await _cdx_fetch(clean, launch_params)
+        rows = launch_rows + death_rows
+
     filtered = [r for r in rows if len(r) <= 2 or not str(r[2]).startswith(('4', '5'))]
     return [{"timestamp": row[0], "original": row[1], "statuscode": row[2] if len(row) > 2 else "200"} for row in filtered[:n]]
 
@@ -289,18 +303,26 @@ async def wayback_first_snapshot(url: str) -> dict | None:
     return None
 
 
-async def build_lifeline(url: str) -> dict:
+async def build_lifeline(
+    url: str, from_year: int | None = None, to_year: int | None = None
+) -> dict:
     """
     Build a year->count map of archive activity using CDX collapse.
     Returns e.g. {"2005": 3, "2006": 11, ..., "2013": 7}
     """
     clean = re.sub(r"^https?://(?:www\.)?", "", url.strip()).rstrip("/")
-    rows = await _cdx_fetch(clean, {
+    params = {
         "url": clean, "output": "json",
         "fl": "timestamp,statuscode",
         "collapse": "timestamp:6",
         "filter": "!statuscode:[45]..",
-    })
+    }
+    if from_year:
+        params["from"] = f"{from_year}0101"
+    if to_year:
+        params["to"] = f"{to_year + 1}1231"
+
+    rows = await _cdx_fetch(clean, params)
     if not rows:
         old_rows = await _cdx_fetch(clean, {
             "url": clean, "output": "json",
@@ -317,7 +339,8 @@ async def build_lifeline(url: str) -> dict:
     for row in rows:
         ts = row[0]
         year = ts[:4]
-        by_year[year] = by_year.get(year, 0) + 1
+        if (from_year is None or int(year) >= from_year) and (to_year is None or int(year) <= to_year + 1):
+            by_year[year] = by_year.get(year, 0) + 1
     return by_year
 
 
@@ -345,7 +368,9 @@ Return JSON only: {{"candidates": ["domain.com", "example.com/service"]}}"""
     return None
 
 
-def select_strategic_snapshots(snapshots: list[dict], lifeline: dict) -> list[dict]:
+def select_strategic_snapshots(
+    snapshots: list[dict], lifeline: dict, death_year: int | None = None
+) -> list[dict]:
     """
     Pick up to 5 strategic snapshots across history:
       1. birth (oldest capture)
@@ -356,11 +381,8 @@ def select_strategic_snapshots(snapshots: list[dict], lifeline: dict) -> list[di
     """
     if not snapshots:
         return []
-    
-    by_ts = sorted(snapshots, key=lambda s: s["timestamp"])
-    oldest = by_ts[0]
-    newest = by_ts[-1]
 
+    by_ts = sorted(snapshots, key=lambda s: s["timestamp"])
     picks: list[dict] = []
     seen_ts: set[str] = set()
 
@@ -370,38 +392,50 @@ def select_strategic_snapshots(snapshots: list[dict], lifeline: dict) -> list[di
             seen_ts.add(snap["timestamp"])
 
     # 1. birth
-    _add(oldest)
+    _add(by_ts[0])
+
+    # Alive snapshots in or before death_year
+    alive_snaps = [
+        s for s in by_ts
+        if (death_year is None or int(s["timestamp"][:4]) <= death_year) and s.get("statuscode") in ("200", "302", "-")
+    ]
+    if not alive_snaps:
+        alive_snaps = by_ts
 
     # 2. peak year
     peak_snap = None
     if lifeline:
         peak_year = max(lifeline, key=lifeline.get)
         best_diff = 9999
-        for snap in by_ts:
+        for snap in alive_snaps:
             diff = abs(int(snap["timestamp"][:4]) - int(peak_year))
             if diff < best_diff:
                 best_diff = diff
                 peak_snap = snap
         _add(peak_snap)
+    elif len(alive_snaps) >= 3:
+        _add(alive_snaps[len(alive_snaps) // 3])
 
-    # 3. decline (snapshot after peak year, before final decay)
-    if lifeline:
-        peak_year = max(lifeline, key=lifeline.get)
-        for snap in by_ts:
-            if int(snap["timestamp"][:4]) > int(peak_year):
-                _add(snap)
-                break
+    # 3. decline (snapshot between peak and last alive)
+    if len(alive_snaps) >= 4:
+        decline_idx = int(len(alive_snaps) * 0.75)
+        _add(alive_snaps[decline_idx])
+    elif len(alive_snaps) > 2:
+        _add(alive_snaps[-2])
 
-    # 4. last-alive (mid point between peak and newest, or penultimate snapshot)
-    if len(by_ts) >= 4:
-        # Choose snapshot around the 75th percentile of timeline
-        last_alive_idx = int(len(by_ts) * 0.7)
-        _add(by_ts[last_alive_idx])
-    elif len(by_ts) > 2:
-        _add(by_ts[-2])
+    # 4. last-alive
+    last_alive_snap = alive_snaps[-1]
+    _add(last_alive_snap)
 
-    # 5. post-death (newest overall)
-    _add(newest)
+    # 5. post-death (first snapshot after death_year or after last-alive)
+    post_death_snaps = [
+        s for s in by_ts
+        if s["timestamp"] > last_alive_snap["timestamp"] and (death_year is None or int(s["timestamp"][:4]) >= death_year)
+    ]
+    if post_death_snaps:
+        _add(post_death_snaps[0])
+    elif by_ts[-1]["timestamp"] not in seen_ts:
+        _add(by_ts[-1])
 
     # Ensure at least 3 snapshots if available
     if len(picks) < 3 and len(by_ts) >= 3:
@@ -410,7 +444,6 @@ def select_strategic_snapshots(snapshots: list[dict], lifeline: dict) -> list[di
             if len(picks) >= 3:
                 break
 
-    # Return chronological order so earliest is first, but peak/alive are prioritized
     picks.sort(key=lambda s: s["timestamp"])
     return picks[:5]
 
@@ -566,18 +599,28 @@ async def _http_fetch_inner(archive_link: str) -> dict:
     raw_link = archive_link
     if "/web/" in archive_link and "id_/" not in archive_link:
         raw_link = re.sub(r"/web/(\d+)/", r"/web/\g<1>id_/", archive_link)
+    # Use https://web.archive.org/ directly as archive.org refuses plaintext port 80
+
+    if raw_link.startswith("http://web.archive.org/"):
+
+        raw_link = "https://" + raw_link[7:]
+
     try:
+
         async with httpx.AsyncClient(
-            timeout=30, follow_redirects=True,
+
+            timeout=15, follow_redirects=True,
+
             headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+
         ) as client:
-            try:
-                r = await client.get(raw_link)
-            except Exception:
-                if raw_link.startswith("https://web.archive.org/"):
-                    r = await client.get("http://" + raw_link[8:])
-                else:
-                    raise
+
+            r = await client.get(raw_link)
+            if r.status_code == 429:
+                await asyncio.sleep(2.0)
+                return {"title": "", "text": "", "screenshot": None, "replay": None, "error": "rate_limited_429",
+                        "fields_filled": 0, "evidence_id": None, "http_status": 429}
+
             html = r.text
             text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.DOTALL | re.IGNORECASE)
             text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.DOTALL | re.IGNORECASE)
@@ -615,6 +658,8 @@ def _clean_wayback_text(text: str) -> str:
     return text.strip()
 
 
+_browserbase_exhausted = False
+
 async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = "") -> tuple[dict, list[dict]]:
     """
     Exhumes all strategic snapshots (up to 5, at least 3) following the fallback ladder:
@@ -640,11 +685,16 @@ async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = 
         
         res = None
         method = "http"
-        if use_browserbase and BROWSERBASE_API_KEY:
+        global _browserbase_exhausted
+        if use_browserbase and BROWSERBASE_API_KEY and not _browserbase_exhausted:
             try:
                 res = await loop.run_in_executor(None, exhume_with_browserbase, link, snap_slug)
                 method = "browserbase"
                 # If browserbase had an error or zero text, try HTTP fallback ladder
+                err_str = str(res.get("error") or "")
+                if "402" in err_str or "limit reached" in err_str:
+                    _browserbase_exhausted = True
+                    logger.warning("Browserbase limit reached (402). Disabling for remainder of session.")
                 if res.get("error") or not usable(res.get("text", ""), res.get("fields_filled", 0)):
                     logger.info(f"[{evidence_id}] Browserbase fallback to HTTP for {link}")
                     fallback_res = await exhume_without_browser(link)
@@ -801,8 +851,9 @@ def coroner_rules(
     # Signal 1: domain redirect
     def _domain(u: str) -> str:
         try:
+            clean_u = re.sub(r"^https?://web\.archive\.org/web/\d+[a-z_]*/", "", (u or "").strip())
             from urllib.parse import urlparse
-            return urlparse(u).netloc.lower().replace("www.", "")
+            return urlparse(clean_u if "://" in clean_u else f"http://{clean_u}").netloc.lower().replace("www.", "")
         except Exception:
             return u
     if final_url and original_url:
@@ -983,7 +1034,7 @@ Extracted text from last archived page:
 
 Write a JSON object with these fields:
 - epitaph: one memorable line, like a gravestone inscription (max 12 words)
-- eulogy: warm, a little funny, 150-220 words, written like a real eulogy. Every factual sentence MUST cite evidence with [E#] tags. If little text is available, say "little is left of it."
+- eulogy: warm, poignant, Dia de los Muertos celebration of what was, 150-220 words. Every factual sentence MUST cite evidence with [E#] tags. Reflect on its creation, its peak cultural impact, and its passing.
 - survived_by: what replaced it or what it inspired (one sentence, or "nothing yet")
 
 Rules:
@@ -1028,7 +1079,7 @@ async def ask_eulogist(
         evidence=evidence_text,
         text=text[:4000] if text else "(no text extracted)",
     )
-    raw = await _call_llm(prompt, max_tokens=600, temperature=0.7, stage="eulogist")
+    raw = await _call_llm(prompt, max_tokens=1500, temperature=0.7, stage="eulogist")
     if not raw:
         return None
     data = _parse_json_safe(raw)
@@ -1187,27 +1238,37 @@ async def _call_llm(prompt: str, max_tokens: int = 600, temperature: float = 0.7
     return await _ask_ollama(prompt)
 
 
-async def _ask_gemini(prompt: str, max_tokens: int = 600, temperature: float = 0.7,
+async def _ask_gemini(prompt: str, max_tokens: int = 1500, temperature: float = 0.7,
                       stage: str = "llm") -> str | None:
     try:
         from google import genai
         client = genai.Client(api_key=GEMINI_API_KEY)
         messages = [{"role": "user", "content": prompt}]
-        # Retry with backoff
-        for attempt in range(3):
-            try:
-                resp = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-                text = resp.text
-                # emit span
+        loop = asyncio.get_event_loop()
+
+        models_to_try = [GEMINI_MODEL]
+        for fb in ["gemini-flash-lite-latest", "gemini-3.5-flash-lite"]:
+            if fb not in models_to_try:
+                models_to_try.append(fb)
+
+        for model in models_to_try:
+            for attempt in range(2):
                 try:
-                    traced_chat(stage, GEMINI_MODEL, messages, lambda: type('_R', (), {'model': GEMINI_MODEL, 'usage': type('_U', (), {'prompt_tokens':0,'completion_tokens':0})()})())
-                except Exception:
-                    pass
-                return text
-            except Exception as e:
-                logger.warning(f"Gemini attempt {attempt+1} failed: {e}")
-                if attempt < 2:
-                    await asyncio.sleep(2 ** attempt)
+                    def _call():
+                        return client.models.generate_content(model=model, contents=prompt)
+                    resp = await loop.run_in_executor(None, _call)
+                    text = resp.text
+                    p_tok = getattr(resp.usage_metadata, "prompt_token_count", 0) if hasattr(resp, "usage_metadata") else 0
+                    c_tok = getattr(resp.usage_metadata, "candidates_token_count", 0) if hasattr(resp, "usage_metadata") else 0
+                    try:
+                        traced_chat(stage, model, messages, lambda: type('_R', (), {'model': model, 'usage': type('_U', (), {'prompt_tokens': p_tok, 'completion_tokens': c_tok})()})())
+                    except Exception:
+                        pass
+                    return text
+                except Exception as e:
+                    logger.warning(f"Gemini/Gemma ({model}) attempt {attempt+1} failed: {e}")
+                    if attempt < 2:
+                        await asyncio.sleep(1.5 * (attempt + 1))
         return None
     except Exception as e:
         logger.error(f"Gemini error: {e}")
@@ -1268,10 +1329,11 @@ async def _ask_ollama(prompt: str) -> str | None:
         return None
 
 
-def _parse_json_safe(raw: str) -> dict | None:
-    cleaned = re.sub(r"^```(?:json)?", "", raw.strip()).strip()
-    cleaned = re.sub(r"```$", "", cleaned).strip()
-    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+def _parse_json_safe(raw: str) -> dict | list | None:
+    cleaned = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+    # Find outermost JSON object or array
+    match = re.search(r"(\{.*\}|\[.*\])", cleaned, re.DOTALL)
     if match:
         cleaned = match.group(0)
     try:
@@ -1293,9 +1355,12 @@ def _parse_json_safe(raw: str) -> dict | None:
 
 async def full_dig(
     url: str,
-    name: str,
+    name: str = '',
     use_browserbase: bool = True,
     status_callback=None,
+    launch_year: int | None = None,
+    death_year: int | None = None,
+    slug: str | None = None,
 ) -> dict:
     """
     Run the complete 5-stage dig pipeline.
@@ -1327,10 +1392,11 @@ async def full_dig(
     }
 
     # Generate a slug early for screenshot naming and evidence tracking
-    import re as _re
-    _slug_base = _re.sub(r"[^\w\s-]", "", (name or url).lower().strip())
-    _slug_base = _re.sub(r"[\s_-]+", "-", _slug_base)
-    slug = _re.sub(r"^-+|-+$", "", _slug_base) or "grave"
+    if not slug:
+        import re as _re
+        _slug_base = _re.sub(r"[^\w\s-]", "", (name or url).lower().strip())
+        _slug_base = _re.sub(r"[\s_-]+", "-", _slug_base)
+        slug = _re.sub(r"^-+|-+$", "", _slug_base) or "grave"
 
     # ── Stage 1: Archaeologist ────────────────────────────────────────────────
     await update("🔍 Archaeologist: searching the archive...")
@@ -1342,24 +1408,28 @@ async def full_dig(
         result["eulogy"] = "This domain has no captures in the Wayback Machine."
         return result
 
-    all_snaps = await wayback_snapshots(url, n=50)
-    lifeline = await build_lifeline(url)
-    snapshots = select_strategic_snapshots(all_snaps, lifeline)
+    all_snaps = await wayback_snapshots(url, n=500, from_year=launch_year, to_year=death_year)
+    lifeline = await build_lifeline(url, from_year=launch_year, to_year=death_year)
+    snapshots = select_strategic_snapshots(all_snaps, lifeline, death_year=death_year)
 
     if not snapshots:
         await update("❌ Not found in the Wayback Machine.")
         result["eulogy"] = "This site was never captured by the Wayback Machine, or it has been excluded."
         return result
 
-    # birth = oldest strategic snapshot (snapshots are sorted chronologically)
-    first_snap = snapshots[0]
+    # birth = oldest snapshot in or after launch_year
+    first_snap = all_snaps[0] if all_snaps else snapshots[0]
     result["first_archived"] = format_wayback_date(first_snap["timestamp"])
     result["first_archive_url"] = build_archive_url(first_snap["timestamp"], first_snap["original"])
 
-    # last-alive = newest strategic snapshot
-    last_snap = snapshots[-1]
-    result["last_seen_alive"] = format_wayback_date(last_snap["timestamp"])
-    result["archive_url"] = build_archive_url(last_snap["timestamp"], last_snap["original"])
+    # last-alive = last snapshot with status 200/302 before or in death_year
+    alive_snaps = [
+        s for s in all_snaps
+        if (death_year is None or int(s["timestamp"][:4]) <= death_year) and s.get("statuscode") in ("200", "302", "-")
+    ]
+    last_alive_snap = alive_snaps[-1] if alive_snaps else snapshots[-1]
+    result["last_seen_alive"] = format_wayback_date(last_alive_snap["timestamp"])
+    result["archive_url"] = build_archive_url(last_alive_snap["timestamp"], last_alive_snap["original"])
 
     result["lifeline_json"] = json.dumps(lifeline) if lifeline else None
     await update(f"📊 Lifeline built: {len(lifeline)} years | {len(snapshots)} strategic snapshots")
@@ -1432,6 +1502,8 @@ async def full_dig(
     else:
         result["eulogy_verified"] = result["eulogy"]
 
+    result["llm_provider"] = LLM_PROVIDER
+    result["llm_model"] = GEMINI_MODEL if LLM_PROVIDER == "gemini" else (GROQ_MODEL if LLM_PROVIDER == "groq" else OLLAMA_MODEL)
     result["dig_status"] = "done"
     await update("✅ Grave is ready.")
     return result
