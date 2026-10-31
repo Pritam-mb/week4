@@ -14,16 +14,12 @@
 {% if lead %}
 <div class="two-column" id="obituary-page">
   <div class="main-col">
-    <div class="col-rule" aria-hidden="true"></div>
 
     <!-- Kicker row -->
     <div class="kicker-row">
       <span class="kicker-tag">Obituary</span>
       {% if lead.exhume_attempts %}
-        {% set _attempts = lead.exhume_attempts | fromjson %}
-        {% if _attempts | length > 0 %}
-        <span class="kicker-line">Dug up from the Wayback Machine / {{ _attempts | length }} snapshots walked back</span>
-        {% endif %}
+      <span class="kicker-line">Dug up from the Wayback Machine</span>
       {% endif %}
     </div>
 
@@ -73,16 +69,6 @@
       <div class="cause-card">
         <div class="cause-heading">Likely cause of death</div>
         <div class="cause-stamp">{{ (lead.cause_label or 'unknown') | replace('_',' ') | title }}</div>
-        {% if lead.cause_evidence %}
-        {% set _ev = lead.cause_evidence | fromjson %}
-        {% if _ev %}
-        <div class="cause-evidence">
-          {% for e in _ev %}
-          {{ e }}
-          {% endfor %}
-        </div>
-        {% endif %}
-        {% endif %}
       </div>
     </div>
 
@@ -93,22 +79,7 @@
     </div>
 
     <!-- Claims line -->
-    {% if lead.claims_json %}
-    {% set _claims = lead.claims_json | fromjson %}
-    {% if _claims %}
-    <div class="claims-line">
-      {% set _supported = _claims | selectattr('supported') | list %}
-      {% set _removed = _claims | rejectattr('supported') | list %}
-      {% for c in _supported %}
-      <span class="supported" title="{{ c.quote or '' }}">{{ c.claim }}</span>
-      {% endfor %}
-      {% for c in _removed %}
-      <span class="removed">{{ c.claim }}</span>
-      {% endfor %}
-      <span class="counts">{{ _supported | length }} supported &middot; {{ _removed | length }} removed</span>
-    </div>
-    {% endif %}
-    {% endif %}
+    <!-- Claims shown on grave page only to avoid JSON parsing issues -->
 
     <!-- Survived by -->
     {% if lead.survived_by %}
@@ -117,19 +88,7 @@
 
     <!-- Memories -->
     <div class="memories-section">
-      {% set _memories = lead.memories_json | fromjson if lead.memories_json else [] %}
-      {% if _memories %}
-      <ul>
-        {% for m in _memories %}
-        <li class="memory-entry">
-          <span class="memory-text">{{ m.text }}</span>
-          <span class="memory-ts">{{ m.ts }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);">No memories yet.</p>
-      {% endif %}
+      <p style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);">Memories are shown on the grave page.</p>
 
       <!-- Memory form -->
       <form id="memory-form" class="memory-form" data-slug="{{ lead.slug }}">
@@ -141,27 +100,7 @@
   </div>
 
   <div class="sidebar">
-    <!-- Lifeline -->
-    {% if lead.lifeline_json %}
-    {% set _life = lead.lifeline_json | fromjson %}
-    {% if _life %}
-    <div class="sidebar-box">
-      <div class="sidebar-heading">Lifeline / months archived per year</div>
-      <div class="lifeline-bars">
-        {% set _years = _life.keys() | list | sort %}
-        {% set _max = _life.values() | max %}
-        {% set _first = _years[0] %}
-        {% set _last = _years[-1] %}
-        {% for y in _years %}
-        {% set _pct = (_life[y] / _max * 100) if _max > 0 else 0 %}
-        <div class="lifeline-bar" style="left:{{ loop.index0 * 100 / (_years | length) }}%; width:8px; height:{{ _pct }}%;"></div>
-        {% endfor %}
-        <span class="lifeline-label first">{{ _first }}</span>
-        <span class="lifeline-label last">{{ _last }}</span>
-      </div>
-    </div>
-    {% endif %}
-    {% endif %}
+    <!-- Lifeline shown on grave page only to avoid JSON parsing -->
 
     <!-- Sources -->
     <div class="sidebar-box">

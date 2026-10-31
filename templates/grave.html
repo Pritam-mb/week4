@@ -7,16 +7,12 @@
 
 <div class="two-column" id="obituary-page">
   <div class="main-col">
-    <div class="col-rule" aria-hidden="true"></div>
 
     <!-- Kicker row -->
     <div class="kicker-row">
       <span class="kicker-tag">Obituary</span>
       {% if attempts %}
-      {% set _attempts = attempts | fromjson if attempts is string else attempts %}
-      {% if _attempts | length > 0 %}
-      <span class="kicker-line">Dug up from the Wayback Machine / {{ _attempts | length }} snapshots walked back</span>
-      {% endif %}
+      <span class="kicker-line">Dug up from the Wayback Machine</span>
       {% endif %}
     </div>
 
@@ -62,19 +58,16 @@
         </div>
       </div>
 
-      <!-- Cause card -->
+        <!-- Cause card -->
       <div class="cause-card">
         <div class="cause-heading">Likely cause of death</div>
         <div class="cause-stamp">{{ (grave.cause_label or 'unknown') | replace('_',' ') | title }}</div>
-        {% if grave.cause_evidence %}
-        {% set _ev = grave.cause_evidence | fromjson if grave.cause_evidence is string else grave.cause_evidence %}
-        {% if _ev %}
+        {% if evidence %}
         <div class="cause-evidence">
-          {% for e in _ev %}
+          {% for e in evidence %}
           {{ e }}
           {% endfor %}
         </div>
-        {% endif %}
         {% endif %}
       </div>
     </div>
@@ -88,7 +81,7 @@
 
     <!-- Claims line -->
     {% if claims %}
-    {% set _claims = claims | fromjson if claims is string else claims %}
+    {% set _claims = claims %}
     {% if _claims %}
     <div class="claims-line">
       {% set _supported = _claims | selectattr('supported') | list %}
@@ -111,8 +104,7 @@
 
     <!-- Memories -->
     <div class="memories-section">
-      {% set _memories = memories | fromjson if memories is string else memories %}
-      {% if _memories %}
+      {% if memories %}
       <ul>
         {% for m in _memories %}
         <li class="memory-entry">
@@ -137,7 +129,7 @@
   <div class="sidebar">
     <!-- Lifeline -->
     {% if lifeline %}
-    {% set _life = lifeline | fromjson if lifeline is string else lifeline %}
+    {% set _life = lifeline %}
     {% if _life %}
     <div class="sidebar-box">
       <div class="sidebar-heading">Lifeline / months archived per year</div>

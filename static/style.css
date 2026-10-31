@@ -172,7 +172,7 @@ ul, ol{margin:0 0 1rem 1.5rem;}
 .papel-picado path.fill-m{fill:var(--marigold);}
 .papel-picado path.fill-e{fill:var(--ember);}
 .papel-picado path.fill-i{fill:var(--ink);}
-.papel-picado path.cutout{fill:var(--paper);}
+.papel-picado .cutout{fill:var(--paper);}
 
 /* Footer */
 .site-footer{
@@ -203,7 +203,7 @@ ul, ol{margin:0 0 1rem 1.5rem;}
 }
 .main-col{flex:1;}
 .sidebar{width:var(--sidebar-width); flex-shrink:0;}
-.col-rule{border-left:1px solid var(--ink); height:100%; position:absolute; top:0; bottom:0; left:calc(50% + 24px);}
+.sidebar{border-left:1px solid var(--ink);}
 
 /* ---------- Home page ---------- */
 
