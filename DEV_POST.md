@@ -32,8 +32,7 @@ Visitors can walk the cemetery rows, read verified obituaries, watch browser rep
 ## Demo
 
 - **Live site:** [https://graveyard-dead-software.onrender.com/](https://graveyard-dead-software.onrender.com/) *(deployed on Render, verified in private browsing)*
-- **Primary Replay Session:** [Browserbase Google Reader Exhumation](https://www.browserbase.com/sessions/7700becb-935a-4217-846b-b217a1e99a13) (Session ID: `7700becb-935a-4217-846b-b217a1e99a13`)
-- **Secondary Replay Session:** [Browserbase Grooveshark Exhumation](https://www.browserbase.com/sessions/344ebd00-b7db-454c-9b38-ac290a83cdfb) (Session ID: `344ebd00-b7db-454c-9b38-ac290a83cdfb`)
+- **Verified Browserbase Session:** Session ID `d4521703-fcd3-4218-bf0b-fa558e9a89bb` (Exhuming Picnik from `web.archive.org`, completed in 32s in `us-west-2`)
 - **Code:** [https://github.com/Pritam-mb/week4](https://github.com/Pritam-mb/week4)
 
 ![Google Reader Memorial Page](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/yis7bg5hoxsn2g0mk33n.png)
@@ -75,10 +74,17 @@ The Archaeologist queries the Internet Archive's CDX Server API (`web.archive.or
 - **The Challenge:** High-volume 90s domains like GeoCities have millions of captures; querying their entire history in a single HTTP request causes Archive.org to time out. The Archaeologist splits the domain's lifespan into five-year chunked windows.
 - **The Output:** It calculates capture density across months to draw an inline, pure SVG "lifeline" sparkline directly onto the grave page, and picks five strategic historical snapshots: *Birth* (earliest operational capture), *Peak* (highest capture volume), *Decline* (downward traffic shift), *Last Seen Alive* (final confirmed 200 OK), and *Post-Death* (first redirect or 404).
 
-### 2. The Exhumer: Resurrecting Old Pixels
+### 2. The Exhumer: Resurrecting Old Pixels with Browserbase
 The Exhumer retrieves historical web pages from Archive.org.
 - **Browserbase Integration:** It launches a headless Chromium session in **Browserbase** over Chrome DevTools Protocol (CDP), navigates to the historical snapshot, waits for legacy scripts to hydrate, takes a full-page PNG screenshot, and records the session replay.
+- **Session Verification:** Because Browserbase session replays are private to workspace accounts, the session inspector is captured below. It shows the browser navigating Archive.org endpoints, streaming the session replay at 32 seconds duration, and executing DOM extractions.
 - **Resilient Fallback:** If Browserbase encounters rate limits or session concurrency caps, it gracefully falls back to raw HTTP snapshot scraping (`id_/` endpoint). Every capture attempt is cataloged as numbered evidence (`E001`, `E002`, ...) with its HTTP status, byte count, and timing.
+
+![Browserbase Session Replay Inspector](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_session_replay.jpg)
+*Figure 3: Browserbase session inspector showing session `d4521703-fcd3-4218-bf0b-fa558e9a89bb` rendering historical Archive.org pages over CDP.*
+
+![Browserbase Sessions Log](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_sessions_list.jpg)
+*Figure 4: Browserbase completed sessions log tracking exhumations across historical targets.*
 
 ### 3. The Coroner: Forensic Autopsy Without Hallucination
 How did the project die? Was it crushed by an acquirer, abandoned by its founder, or killed by executive fiat?
@@ -89,7 +95,10 @@ How did the project die? Was it crushed by an acquirer, abandoned by its founder
 ### 4. The Eulogist: Gemma in Día de los Muertos Register
 Powered by open-weight **Gemma**, the Eulogist composes a 12-word epitaph and a 150–220 word commemorative eulogy. 
 - We deliberately tuned Gemma's prompt tone away from snarky corporate obituaries toward the celebratory warmth of *Día de los Muertos*. It honors the human craft behind the software, notes its cultural impact, and cites evidence tags (`[E001]`).
-- **Thin Evidence Banner:** When the recovered archive text is under 600 characters, the UI displays an **"Archival evidence is thin"** notice, and Gemma is instructed to write a brief, honest remembrance rather than inventing corporate drama from memory.
+- **Thin Evidence Banner:** When the recovered archive text is under 600 characters, the UI displays an **"Archival evidence is thin (<600 chars recovered)"** notice, and Gemma is instructed to write a brief, honest remembrance rather than inventing corporate drama from memory.
+
+![Thin Evidence Badge on Flash Player Grave](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/flash_player_grave_ui.jpg)
+*Figure 5: The Flash Player grave showing the "Archival evidence is thin" notice when Wayback returns minimal text, keeping the eulogy honest.*
 
 ### 5. The Fact-Checker: Self-Correcting Verification Loop
 Autonomous LLMs love to hallucinate dates, acquisition sums, and features. To prevent ungrounded storytelling:
@@ -162,6 +171,12 @@ I did not try to bypass the block. The Archive is a free public library; the onl
 
 Each dig is instrumented with a root span `gen_ai.invoke_agent`, with child `gen_ai.chat` spans for each Gemma call and `gen_ai.execute_tool` spans for CDX queries and Browserbase fetches. The conversation ID is the grave slug.
 
+![Sentry Distributed Trace Waterfall](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/gn9swknh7gpcs3igzqfm.png)
+*Figure 6: Distributed trace waterfall showing `gen_ai.invoke_agent` branching into child chat and tool spans.*
+
+![Sentry Performance Overview](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/i4hm0nnq9gavsbfg8c5y.png)
+*Figure 7: Sentry transactions dashboard showing agent execution latencies and throughput.*
+
 When inspecting the actual Sentry traces across full digs:
 - **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries take ~2 to 3 seconds.
 - **Failures recorded:** Tool spans captured 429 rate limits from Archive.org during burst exhumations and 402 quota-limit warnings when Browserbase concurrent session limits were hit.
@@ -179,6 +194,9 @@ You can inspect the live benchmark dashboard directly on our site at [/benchmark
 |---|---:|---:|---:|---:|---|
 | **Plain HTTP (`id_/`)** | 31 | 100.0% | 964 chars | 3.3s | 0 (Wayback 429s caught by retry pacing) |
 | **Browserbase (CDP)** | 27 | 81.5% | 1,513 chars | 15.1s | 5 (free-plan session limits / replay timeouts) |
+
+![Live Benchmark Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/vsuvek0u7uip2l0js9wy.png)
+*Figure 8: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
 
 Where each path won:
 - **Plain HTTP** won on speed and raw simplicity. For static 1990s web pages (AltaVista, early GeoCities), raw HTML fetching finished in 3 seconds without browser startup overhead.
@@ -256,7 +274,7 @@ A cemetery whose brain could be switched off overnight by a single corporate API
 
 - **Overall "Ghost in the Machine":** A complete five-stage pipeline that exhumes dead software from the archives of the web, with measured benchmarks, real failure modes, and forensic honesty.
 - **Gemma:** Powered by `gemma-4-26b-a4b-it` for coroner classifications, Día de los Muertos eulogies, and self-correcting claim verification. All 15 graves are attributed to Gemma.
-- **Browserbase:** Cloud-browser CDP extraction, full-page retro screenshot captures, replay session recordings (Session IDs: `7700becb-935a-4217-846b-b217a1e99a13`, `344ebd00-b7db-454c-9b38-ac290a83cdfb`), and an empirical 58-attempt comparison against plain HTTP.
+- **Browserbase:** Cloud-browser CDP extraction, full-page retro screenshot captures, replay session recordings (Session ID `d4521703-fcd3-4218-bf0b-fa558e9a89bb`), and an empirical 58-attempt comparison against plain HTTP.
 - **Sentry:** Distributed OpenTelemetry GenAI agent tracing across every dig stage, tracking prompt/completion tokens, latency per stage, and tool error handling.
 - **Render:** Hosted live on Render with automated health checks at `/health` and seed bundle hydration.
 
