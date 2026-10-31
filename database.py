@@ -7,11 +7,18 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Text, Integer, DateTime, Boolean, Float
 from datetime import datetime
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./graveyard.db")
+_raw_db_url = os.getenv("DATABASE_URL")
+if not _raw_db_url or not _raw_db_url.strip():
+    DATABASE_URL = f"sqlite+aiosqlite:///{Path(__file__).parent.resolve() / 'graveyard.db'}"
+elif _raw_db_url.startswith("sqlite://"):
+    DATABASE_URL = _raw_db_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+else:
+    DATABASE_URL = _raw_db_url
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)

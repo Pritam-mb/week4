@@ -7,8 +7,7 @@
 
 {% set lead = None %}
 {% if graves %}
-  {% set _sorted = graves | sort(attribute='marigolds', reverse=true) | sort(attribute='created_at', reverse=true) %}
-  {% set lead = _sorted[0] %}
+  {% set lead = graves[0] %}
 {% endif %}
 
 {% if lead %}

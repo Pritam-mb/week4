@@ -294,10 +294,10 @@ async def run_dig_job(job_id: str, url: str, name: str, use_browserbase: bool = 
 @app.get("/", response_class=HTMLResponse)
 async def cemetery(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Grave).where(Grave.dig_status == "done").order_by(desc(Grave.created_at))
+        select(Grave).where(Grave.dig_status == "done").order_by(desc(Grave.marigolds), desc(Grave.created_at))
     )
     graves = result.scalars().all()
-    return templates.TemplateResponse("cemetery.html", {"request": request, "graves": graves})
+    return templates.TemplateResponse(request=request, name="cemetery.html", context={"graves": graves})
 
 
 @app.post("/bury")
@@ -393,8 +393,7 @@ async def grave_page(slug: str, request: Request, db: AsyncSession = Depends(get
         except Exception:
             pass
 
-    return templates.TemplateResponse("grave.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="grave.html", context={
         "grave": grave,
         "lifeline": lifeline,
         "evidence": evidence,
@@ -516,8 +515,7 @@ async def benchmark_page(request: Request, db: AsyncSession = Depends(get_db)):
                 "total": len(e_rows),
             }
 
-    return templates.TemplateResponse("benchmark.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="benchmark.html", context={
         "rows": rows,
         "summary": summary,
         "http_stats": http_s,
@@ -545,3 +543,9 @@ async def health(db: AsyncSession = Depends(get_db)):
         "sentry_configured": bool(os.getenv("SENTRY_DSN")),
         "ts": datetime.utcnow().isoformat(),
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
