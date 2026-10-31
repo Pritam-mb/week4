@@ -10,6 +10,7 @@ import time
 import httpx
 import asyncio
 import logging
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
@@ -152,13 +153,30 @@ BAD_MARKERS = [
     "got an http 302 response", "got an http 301 response",
     "redirecting to...", "too many requests", "error 429",
     "service temporarily unavailable", "all connection attempts failed",
+    "your request is being blocked", "suspected abusive bot traffic",
+    "overloading our systems", "this domain is parked", "domain parking",
+    "this site is temporarily unavailable", "please enable cookies",
 ]
 
-def usable(text: str, fields_filled: int = 0) -> bool:
+def usable(text: str, fields_filled: int = 0, http_status: int = 200, body_hash: str | None = None, seen_hashes: set[str] | None = None) -> bool:
+    if http_status != 200:
+        return False
     t = text.lower().strip()
-    if fields_filled > 0 and len(t) >= 50:
-        return True
-    return len(t) >= 100 and not any(m in t[:800] for m in BAD_MARKERS)
+    # minimum length
+    min_len = 50 if fields_filled > 0 else 100
+    if len(t) < min_len:
+        return False
+    # marker checks
+    if any(m in t[:800] for m in BAD_MARKERS):
+        return False
+    # body hash uniqueness within dig
+    if body_hash:
+        if seen_hashes is None:
+            seen_hashes = set()
+        if body_hash in seen_hashes:
+            return False
+        seen_hashes.add(body_hash)
+    return True
 
 
 # ─── SSRF guard ────────────────────────────────────────────────────────────────
@@ -204,21 +222,50 @@ def is_ssrf_safe(url: str) -> bool:
 CDX_BASE = "https://web.archive.org/cdx/search/cdx"
 WAYBACK_TIMEOUT = 15.0
 WAYBACK_RETRIES = 2
+WAYBACK_USER_AGENT = "GraveyardOfDeadSoftware/1.0 (+mailto:contact@graveyard.example.com)"
+CACHE_DIR = Path(__file__).parent / "cache"
+CACHE_CDX = CACHE_DIR / "cdx"
+CACHE_SNAP = CACHE_DIR / "snapshots"
+CACHE_CDX.mkdir(parents=True, exist_ok=True)
+CACHE_SNAP.mkdir(parents=True, exist_ok=True)
 
 
 async def _cdx_fetch_inner(url: str, params: dict) -> list:
     """Fetch CDX with 15s timeout and 2 retries. Returns raw rows (excluding header)."""
+    import hashlib
+    key = hashlib.sha256(f"{url}-{json.dumps(params, sort_keys=True)}".encode()).hexdigest()
+    cache_path = CACHE_CDX / f"{key}.json"
+    if cache_path.exists():
+        try:
+            return json.loads(cache_path.read_text())
+        except Exception:
+            pass
     last_err = None
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    headers = {"User-Agent": WAYBACK_USER_AGENT}
     timeout = WAYBACK_TIMEOUT
     max_retries = WAYBACK_RETRIES
     for attempt in range(max_retries + 1):
         try:
+            await asyncio.sleep(3.5)
             async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
                 r = await client.get(CDX_BASE, params=params)
+                if r.status_code == 429:
+                    retry_after = r.headers.get("Retry-After")
+                    wait = 5 * (2 ** attempt)
+                    try:
+                        wait = int(retry_after) if retry_after else wait
+                    except Exception:
+                        pass
+                    logger.warning(f"CDX 429 for {url}, retry after {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
                 r.raise_for_status()
                 data = r.json()
                 rows = data[1:] if len(data) > 1 else []
+                try:
+                    cache_path.write_text(json.dumps(rows))
+                except Exception:
+                    pass
                 return rows
         except Exception as e:
             last_err = e
@@ -674,6 +721,7 @@ async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = 
     best_res = None
     all_texts = []
     all_fields = {}
+    seen_hashes = set()
 
     for idx, snap in enumerate(snapshots, start=1):
         link = build_archive_url(snap["timestamp"], snap["original"])
@@ -684,38 +732,34 @@ async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = 
         snap_slug = slug
         
         res = None
-        method = "http"
+        method = "browserbase"
         global _browserbase_exhausted
         if use_browserbase and BROWSERBASE_API_KEY and not _browserbase_exhausted:
             try:
                 res = await loop.run_in_executor(None, exhume_with_browserbase, link, snap_slug)
                 method = "browserbase"
-                # If browserbase had an error or zero text, try HTTP fallback ladder
                 err_str = str(res.get("error") or "")
                 if "402" in err_str or "limit reached" in err_str:
                     _browserbase_exhausted = True
                     logger.warning("Browserbase limit reached (402). Disabling for remainder of session.")
-                if res.get("error") or not usable(res.get("text", ""), res.get("fields_filled", 0)):
-                    logger.info(f"[{evidence_id}] Browserbase fallback to HTTP for {link}")
-                    fallback_res = await exhume_without_browser(link)
-                    if usable(fallback_res.get("text", ""), fallback_res.get("fields_filled", 0)):
-                        # Retain screenshot/replay from browserbase if captured
-                        fallback_res["screenshot"] = res.get("screenshot") or fallback_res.get("screenshot")
-                        fallback_res["replay"] = res.get("replay") or fallback_res.get("replay")
-                        res = fallback_res
-                        method = "http"
+                # No HTTP fallback to avoid evading Archive.org blocks
+                if res.get("error"):
+                    logger.warning(f"[{evidence_id}] Browserbase error, marking failed: {res.get('error')}")
             except Exception as e:
-                logger.warning(f"[{evidence_id}] Browserbase exception: {e}; falling back to HTTP")
-                res = await exhume_without_browser(link)
-                method = "http"
+                logger.warning(f"[{evidence_id}] Browserbase exception: {e}; marking failed")
+                res = {"title": "", "text": "", "screenshot": None, "replay": None, "error": str(e), "fields_filled": 0, "http_status": 0}
         else:
-            res = await exhume_without_browser(link)
-            method = "http"
+            # No Browserbase key or exhausted: mark attempt as failed per politeness policy
+            logger.info(f"[{evidence_id}] No Browserbase available, skipping snapshot to respect Archive.org politeness")
+            res = {"title": "", "text": "", "screenshot": None, "replay": None, "error": "browserbase_unavailable", "fields_filled": 0, "http_status": 0}
+            method = "none"
 
         elapsed = round(time.time() - t0, 1)
         text = res.get("text", "") or ""
         fields_filled = res.get("fields_filled", 0)
-        ok = usable(text, fields_filled)
+        http_status = res.get("http_status", 200)
+        body_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
+        ok = usable(text, fields_filled, http_status=http_status, body_hash=body_hash, seen_hashes=seen_hashes)
 
         attempt_log = {
             "evidence_id": evidence_id,
@@ -723,7 +767,8 @@ async def exhume_best(snapshots: list[dict], use_browserbase: bool, slug: str = 
             "link": link,
             "method": method,
             "status": "ok" if ok else "failed",
-            "http_status": res.get("http_status", 200 if ok else None),
+            "http_status": http_status,
+            "body_hash": body_hash,
             "ms": int(elapsed * 1000),
             "chars": len(text),
             "fields_filled": fields_filled,
@@ -806,6 +851,9 @@ VALID_CAUSES = [
     "tech_obsolete",
     "abandoned",
     "unknown",
+    "shut_down_by_owner",
+    "acquired_then_shut_down",
+    "taken_over_or_redirected",
 ]
 
 CauseLiteral = Literal[
@@ -816,15 +864,16 @@ CauseLiteral = Literal[
     "tech_obsolete",
     "abandoned",
     "unknown",
+    "shut_down_by_owner",
+    "acquired_then_shut_down",
+    "taken_over_or_redirected",
 ]
 
 CAUSE_LABEL_DISPLAY = {
-    "shut_down": "Announced shutdown",
-    "acquired_and_killed": "Acquired and killed",
-    "pivoted": "Pivoted",
-    "outcompeted": "Outcompeted",
-    "tech_obsolete": "Technologically obsolete",
+    "shut_down_by_owner": "Shut down by owner",
+    "acquired_then_shut_down": "Acquired then shut down",
     "abandoned": "Abandoned",
+    "taken_over_or_redirected": "Taken over or redirected",
     "unknown": "Unknown",
 }
 
@@ -853,7 +902,11 @@ def coroner_rules(
         try:
             clean_u = re.sub(r"^https?://web\.archive\.org/web/\d+[a-z_]*/", "", (u or "").strip())
             from urllib.parse import urlparse
-            return urlparse(clean_u if "://" in clean_u else f"http://{clean_u}").netloc.lower().replace("www.", "")
+            netloc = urlparse(clean_u if "://" in clean_u else f"http://{clean_u}").netloc.lower()
+            netloc = re.sub(r"^www\.", "", netloc)
+            netloc = netloc.split(":")[0]
+            netloc = netloc.rstrip("/")
+            return netloc
         except Exception:
             return u
     if final_url and original_url:
@@ -921,19 +974,17 @@ Archived evidence text:
 \"\"\"
 
 Task: Based strictly on the evidence above, determine cause of death.
-Allowed cause values (enum in WORKFLOW.md):
-- shut_down (announced official sunset/shutdown)
-- acquired_and_killed (acquired by another company and discontinued)
-- pivoted (changed into another product)
-- outcompeted (lost market share to rivals)
-- tech_obsolete (Flash, plugins, or obsolete protocols)
+Allowed cause values:
+- shut_down_by_owner (announced official sunset/shutdown by owner)
+- acquired_then_shut_down (acquired by another company and then discontinued)
 - abandoned (slowly stopped updates/decayed)
+- taken_over_or_redirected (domain redirected or taken over)
 - unknown (no clear evidence)
 
 If no evidence supports a cause, you MUST return "unknown". Never guess.
 
 Respond with JSON only:
-{{"cause": "<one of: shut_down|acquired_and_killed|pivoted|outcompeted|tech_obsolete|abandoned|unknown>",
+{{"cause": "<one of: shut_down_by_owner|acquired_then_shut_down|abandoned|taken_over_or_redirected|unknown>",
   "time_of_death": "<year or month/year, e.g. 2013>",
   "confidence": <number between 0.0 and 1.0>,
   "evidence_ids": ["<E001>", "<E002>"]}}
@@ -947,11 +998,18 @@ async def coroner_hybrid(
 ) -> dict:
     """Hybrid coroner: deterministic signals first, then LLM returns strict JSON validated with Pydantic (retry once)."""
     rule_label, rule_signals = coroner_rules(text, lifeline, final_url, url)
+    # Build evidence lookup for validation
+    evidence_map = {}
+    if evidence:
+        for ev in evidence:
+            eid = ev.get("evidence_id")
+            if eid:
+                evidence_map[eid] = ev.get("text", "") or ""
     
     # Map rule label to WORKFLOW enum
     rule_to_enum = {
-        "acquired_or_redirected": "acquired_and_killed",
-        "announced_shutdown": "shut_down",
+        "acquired_or_redirected": "taken_over_or_redirected",
+        "announced_shutdown": "shut_down_by_owner",
         "slow_abandonment": "abandoned",
         "vanished": "abandoned",
         "unknown": "unknown",
@@ -990,13 +1048,24 @@ async def coroner_hybrid(
                 try:
                     validated = CoronerOutput(**result)
                     if validated.cause in VALID_CAUSES:
+                        # Validate evidence IDs exist
+                        valid_ids = True
+                        confidence = validated.confidence
+                        if validated.evidence_ids:
+                            for eid in validated.evidence_ids:
+                                if eid not in evidence_map:
+                                    valid_ids = False
+                                    break
+                        if not valid_ids:
+                            validated.cause = "unknown"
+                            confidence = min(confidence, 0.3)
                         c_display = CAUSE_LABEL_DISPLAY.get(validated.cause, validated.cause.replace('_', ' ').title())
                         time_str = f" ({validated.time_of_death})" if validated.time_of_death != "unknown" else ""
                         return {
                             "cause_label": validated.cause,
                             "cause_of_death": f"Likely: {c_display}{time_str}",
                             "cause_evidence": json.dumps(validated.evidence_ids if validated.evidence_ids else rule_signals),
-                            "cause_is_rumored": validated.confidence < 0.7 or not validated.evidence_ids,
+                            "cause_is_rumored": confidence < 0.7 or not validated.evidence_ids,
                         }
                 except ValidationError as ve:
                     logger.warning(f"Coroner validation attempt {attempt+1} failed: {ve}")

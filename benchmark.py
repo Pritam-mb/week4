@@ -80,7 +80,8 @@ async def run_benchmark():
 
                 text = res.get("text", "") or ""
                 fields_filled = res.get("fields_filled", 0)
-                ok   = usable(text, fields_filled)
+                http_status = res.get("http_status", 200)
+                ok   = usable(text, fields_filled, http_status=http_status)
                 chars = len(text)
                 err  = res.get("error") or ""
             except Exception as e:

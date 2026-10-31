@@ -228,11 +228,11 @@
     e.preventDefault();
     const url = document.getElementById('url-input').value;
     btn.disabled = true;
-    btn.textContent = 'Burying&hellip;';
+    btn.textContent = 'Burying...';
     stepperEl.style.display = 'block';
     doneEl.style.display = 'none';
     errorEl.style.display = 'none';
-    msgEl.textContent = 'Starting&hellip;';
+    msgEl.textContent = 'Starting...';
     steps.forEach(s=>document.getElementById('step-'+s).className='stepper-step pending');
 
     try{
@@ -243,8 +243,16 @@
         const data = await res.json();
         throw new Error(data.detail || 'Submission failed');
       }
-      const {job_id} = await res.json();
-      pollJob(job_id);
+      const data = await res.json();
+      if(data.existing_slug){
+        msgEl.textContent = 'Already in the graveyard. Visiting grave...';
+        setTimeout(()=>{ window.location.href = '/grave/' + data.existing_slug; }, 800);
+        return;
+      }
+      if(!data.job_id){
+        throw new Error(data.message || 'Submission failed');
+      }
+      pollJob(data.job_id);
     }catch(err){
       msgEl.textContent = '';
       errorEl.textContent = err.message;
@@ -257,8 +265,11 @@
     const interval = setInterval(async ()=>{
       try{
         const res = await fetch('/job/'+job_id);
+        if(!res.ok){
+          throw new Error('Lost connection while digging.');
+        }
         const data = await res.json();
-        msgEl.textContent = (data.message || 'Working&hellip;');
+        msgEl.textContent = (data.message || 'Working...');
         if(data.stage) setStep(data.stage);
         if(data.status === 'done'){
           clearInterval(interval);

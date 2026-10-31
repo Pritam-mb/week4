@@ -9,15 +9,11 @@ services:
       - key: DATABASE_URL
         value: sqlite+aiosqlite:///./graveyard.db
       - key: LLM_PROVIDER
-        sync: false
+        value: gemini
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-flash-lite-latest
-      - key: OLLAMA_HOST
-        value: http://localhost:11434
-      - key: OLLAMA_MODEL
-        value: gemma3
+        value: gemma-4-26b-a4b-it
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
