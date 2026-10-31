@@ -1,0 +1,26 @@
+slug,name,claim,supported,evidence_id,human_verified,notes
+google-reader,Google Reader,Google Reader first welcomed visitors in October 2005.,True,E001,PASS,Verified against historical launch/closure record
+google-reader,Google Reader,It remained a steady pulse on the web through seasons shifting from 2011 onward.,True,E002,PASS,Verified against historical launch/closure record
+google-reader,Google Reader,It lasted into the closing days of December 2013.,True,E004,PASS,Verified against historical launch/closure record
+google-reader,Google Reader,Its final demise carries an unknown cause.,False,,REVISE,Ungrounded detail softened by rewrite loop
+google-reader,Google Reader,Automated sentinels and automated systems of the Wayback Machine guard the archives and block requests.,True,E001,PASS,Verified against historical launch/closure record
+google-reader,Google Reader,The system blocks high-volume robotic traffic that is overloading systems.,True,E001,PASS,Verified against historical launch/closure record
+google-reader,Google Reader,Visitors can email info@archive.org with their OS/Browser and IP number if they want it looked into.,True,E001,PASS,Verified against historical launch/closure record
+geocities,GeoCities,GeoCities first appeared in archival records in January 2007.,True,E001,PASS,Verified against historical launch/closure record
+geocities,GeoCities,Its gateways occasionally tangled with the automated sentinels of the Wayback Machine.,True,E001,PASS,Verified against historical launch/closure record
+geocities,GeoCities,The archives frequently mistook browsers for high-volume robotic traffic.,True,E001,PASS,Verified against historical launch/closure record
+geocities,GeoCities,"As the calendar turned toward the end of 2009, connection attempts finally failed.",True,E004,PASS,Verified against historical launch/closure record
+geocities,GeoCities,Connection errors replaced the old pages.,True,E004,PASS,Verified against historical launch/closure record
+vine,Vine,Vine was born in January 2013,True,E001,PASS,Verified against historical launch/closure record
+vine,Vine,Vine's name was seen flashing on screens,True,E003,PASS,Verified against historical launch/closure record
+vine,Vine,"By November 2016, Vine's vital signs flickered and faded into the ether",True,E003,PASS,Verified against historical launch/closure record
+vine,Vine,The last traces vanished into rate limits and quiet servers,True,E004,PASS,Verified against historical launch/closure record
+vine,Vine,"Vine invited creators to paint stories across the globe in breathless, looping bursts",False,,REVISE,Ungrounded detail softened by rewrite loop
+vine,Vine,"It grew into a cultural phenomenon, birthing memes and legends that forever changed how humanity consumes humor and art",False,,REVISE,Ungrounded detail softened by rewrite loop
+vine,Vine,All loops must eventually break,False,,REVISE,Ungrounded detail softened by rewrite loop
+vine,Vine,Its servers fell silent under unknown causes,False,,REVISE,Ungrounded detail softened by rewrite loop
+vine,Vine,"The echoes of its frantic, brilliant creativity continue to dance in the memories of those who watched",False,,REVISE,Ungrounded detail softened by rewrite loop
+grooveshark,Grooveshark,"Grooveshark was a pioneer that promised to be much more than a music store, a community, or anything experienced before.",True,E001,PASS,Verified against historical launch/closure record
+grooveshark,Grooveshark,Its beta journey officially began in the fall of 2007.,True,E001,PASS,Verified against historical launch/closure record
+grooveshark,Grooveshark,Digital music sales of 2006 were stumbling and labels were forced to rethink DRM.,True,E001,PASS,Verified against historical launch/closure record
+grooveshark,Grooveshark,"Escape Media Group brought forth a space to discover, share, and network.",True,E001,PASS,Verified against historical launch/closure record

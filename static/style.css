@@ -569,6 +569,7 @@ ul, ol{margin:0 0 1rem 1.5rem;}
   display:flex;
   justify-content:space-between;
   align-items:center;
+  gap:12px;
   background:var(--marigold);
   color:var(--ink);
   font-family:var(--font-mono);
@@ -580,6 +581,15 @@ ul, ol{margin:0 0 1rem 1.5rem;}
   border:none;
 }
 .marigold-btn-box:hover{background:var(--ember); color:var(--paper);}
+.marigold-btn-label{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.marigold-count-pill{
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
 .marigold-icon-svg{
   width:16px; height:16px;
   fill:none; stroke:currentColor; stroke-width:2;

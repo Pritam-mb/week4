@@ -46,8 +46,8 @@ async def update_grave_from_result(grave: Grave, result: dict, seed_item: dict):
         grave.cause_of_death = coroner_cause
         grave.cause_label = result.get("cause_label") or seed_item.get("cause_label")
     else:
-        grave.cause_of_death = seed_item.get("cause_of_death") or "shut_down"
-        grave.cause_label = seed_item.get("cause_label") or "Announced official shutdown"
+        grave.cause_of_death = seed_item.get("cause_of_death") or "shut_down_by_owner"
+        grave.cause_label = seed_item.get("cause_label") or "Shut down by owner"
         
     grave.cause_evidence = result.get("cause_evidence")
     grave.cause_is_rumored = result.get("cause_is_rumored", False)
@@ -76,7 +76,7 @@ async def main():
     results = []
     async with AsyncSessionLocal() as db:
         # Clean up legacy obsolete slugs from prior test runs if any
-        obsolete_slugs = ["soundcloud-go", "tumblr-nsfw", "digg"]
+        obsolete_slugs = ["soundcloud-go", "tumblr-nsfw", "digg", "myspace"]
         for obs in obsolete_slugs:
             obs_res = await db.execute(select(Grave).where(Grave.slug == obs))
             obs_grave = obs_res.scalar_one_or_none()
