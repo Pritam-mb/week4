@@ -1,0 +1,107 @@
+[
+  {
+    "slug": "google-reader",
+    "name": "Google Reader",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2013",
+    "notes": "Google announced sunset on March 13, 2013; permanently shut down July 1, 2013."
+  },
+  {
+    "slug": "geocities",
+    "name": "GeoCities",
+    "ground_truth_cause": "acquired_then_shut_down",
+    "ground_truth_year": "2009",
+    "notes": "Acquired by Yahoo in 1999 for $3.57B; shut down on October 26, 2009."
+  },
+  {
+    "slug": "vine",
+    "name": "Vine",
+    "ground_truth_cause": "acquired_then_shut_down",
+    "ground_truth_year": "2016",
+    "notes": "Acquired by Twitter in 2012; Twitter announced shutdown in October 2016."
+  },
+  {
+    "slug": "grooveshark",
+    "name": "Grooveshark",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2015",
+    "notes": "Ceased operations on April 30, 2015 as part of copyright settlement."
+  },
+  {
+    "slug": "flash",
+    "name": "Adobe Flash Player",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2020",
+    "notes": "Adobe officially retired and blocked Flash Player on December 31, 2020."
+  },
+  {
+    "slug": "stumbleupon",
+    "name": "StumbleUpon",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2018",
+    "notes": "Shut down by founder Garrett Camp on June 30, 2018; transitioned to Mix.com."
+  },
+  {
+    "slug": "yahoo-answers",
+    "name": "Yahoo Answers",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2021",
+    "notes": "Shut down by Yahoo on May 4, 2021."
+  },
+  {
+    "slug": "picnik",
+    "name": "Picnik",
+    "ground_truth_cause": "acquired_then_shut_down",
+    "ground_truth_year": "2012",
+    "notes": "Acquired by Google in 2010; retired on April 19, 2012."
+  },
+  {
+    "slug": "altavista",
+    "name": "AltaVista",
+    "ground_truth_cause": "acquired_then_shut_down",
+    "ground_truth_year": "2013",
+    "notes": "Acquired by Yahoo via Overture; shut down on July 8, 2013."
+  },
+  {
+    "slug": "icq",
+    "name": "ICQ",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2024",
+    "notes": "VK officially terminated ICQ services on June 26, 2024."
+  },
+  {
+    "slug": "del-icio-us",
+    "name": "del.icio.us",
+    "ground_truth_cause": "abandoned",
+    "ground_truth_year": "2017",
+    "notes": "Acquired by Yahoo in 2005, sold to AVOS in 2011, acquired by Pinboard in 2017 and deactivated."
+  },
+  {
+    "slug": "aim",
+    "name": "AOL Instant Messenger (AIM)",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2017",
+    "notes": "Oath/Verizon officially terminated AIM on December 15, 2017."
+  },
+  {
+    "slug": "google-plus",
+    "name": "Google+",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2019",
+    "notes": "Google shut down the consumer version on April 2, 2019."
+  },
+  {
+    "slug": "zune",
+    "name": "Microsoft Zune",
+    "ground_truth_cause": "shut_down_by_owner",
+    "ground_truth_year": "2015",
+    "notes": "Hardware discontinued in 2011; music and streaming services retired on November 15, 2015."
+  },
+  {
+    "slug": "pebble",
+    "name": "Pebble",
+    "ground_truth_cause": "acquired_then_shut_down",
+    "ground_truth_year": "2016",
+    "notes": "Fitbit acquired Pebble software assets on December 7, 2016; cloud servers shut down June 2018."
+  }
+]

@@ -51,7 +51,7 @@
           </div>
         {% endif %}
         <div class="frame-caption">
-          <span class="caption-label">Last archived page</span>
+          <span class="caption-label">Last archived capture</span>
           {% if grave.replay_url %}
           <a href="{{ grave.replay_url }}" target="_blank" rel="noopener" class="caption-link">Watch the exhumation</a>
           {% endif %}
@@ -157,7 +157,7 @@
         <li><a href="{{ grave.first_archive_url }}" target="_blank" rel="noopener" class="source-row">First capture<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
         {% endif %}
         {% if grave.archive_url %}
-        <li><a href="{{ grave.archive_url }}" target="_blank" rel="noopener" class="source-row">Last capture<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
+        <li><a href="{{ grave.archive_url }}" target="_blank" rel="noopener" class="source-row">Last archived capture<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>
         {% endif %}
         {% if grave.replay_url %}
         <li><a href="{{ grave.replay_url }}" target="_blank" rel="noopener" class="source-row">Session replay<svg class="arrow" viewBox="0 0 10 10"><path d="M2 2 L8 2 L8 8" /></svg></a></li>

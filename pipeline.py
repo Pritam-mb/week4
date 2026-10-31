@@ -114,7 +114,7 @@ BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 GROQ_API_KEY        = os.getenv("GROQ_API_KEY", "")
 LLM_PROVIDER        = os.getenv("LLM_PROVIDER") or os.getenv("GEMMA_PROVIDER") or "gemini"
 GEMINI_API_KEY      = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL        = os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
+GEMINI_MODEL        = os.getenv("GEMINI_MODEL", "gemma-4-26b-a4b-it")
 OLLAMA_HOST         = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL", "gemma3")
 GROQ_MODEL          = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
@@ -358,30 +358,42 @@ async def build_lifeline(
     Returns e.g. {"2005": 3, "2006": 11, ..., "2013": 7}
     """
     clean = re.sub(r"^https?://(?:www\.)?", "", url.strip()).rstrip("/")
-    params = {
-        "url": clean, "output": "json",
-        "fl": "timestamp,statuscode",
-        "collapse": "timestamp:6",
-        "filter": "!statuscode:[45]..",
-    }
-    if from_year:
-        params["from"] = f"{from_year}0101"
-    if to_year:
-        params["to"] = f"{to_year + 1}1231"
+    # For large domains like geocities, query in year-range chunks to avoid timeouts
+    by_year: dict[str, int] = {}
+    # Determine year range
+    y_start = from_year if from_year else 1996
+    y_end = to_year if to_year else 2024
+    chunks = []
+    if "geocities" in clean.lower():
+        # Split into 5-year chunks
+        for y in range(y_start, y_end + 1, 5):
+            chunk_end = min(y + 4, y_end)
+            chunks.append((y, chunk_end))
+    else:
+        chunks.append((y_start, y_end))
 
-    rows = await _cdx_fetch(clean, params)
-    if not rows:
-        old_rows = await _cdx_fetch(clean, {
+    all_rows = []
+    for cs, ce in chunks:
+        params = {
             "url": clean, "output": "json",
             "fl": "timestamp,statuscode",
-            "limit": "200",
-        })
-        new_rows = await _cdx_fetch(clean, {
-            "url": clean, "output": "json",
-            "fl": "timestamp,statuscode",
-            "limit": "-100",
-        })
-        rows = old_rows + new_rows
+            "collapse": "timestamp:6",
+            "filter": "!statuscode:[45]..",
+            "from": f"{cs}0101",
+            "to": f"{ce + 1}1231",
+        }
+        rows = await _cdx_fetch(clean, params)
+        if rows:
+            all_rows.extend(rows)
+        else:
+            # fallback
+            rows2 = await _cdx_fetch(clean, {
+                "url": clean, "output": "json",
+                "fl": "timestamp,statuscode",
+                "limit": "200",
+            })
+            all_rows.extend(rows2)
+    rows = all_rows
     by_year: dict[str, int] = {}
     for row in rows:
         ts = row[0]
@@ -1316,9 +1328,6 @@ async def _ask_gemini(prompt: str, max_tokens: int = 1500, temperature: float = 
         loop = asyncio.get_event_loop()
 
         models_to_try = [GEMINI_MODEL]
-        for fb in ["gemini-flash-lite-latest", "gemini-3.5-flash-lite"]:
-            if fb not in models_to_try:
-                models_to_try.append(fb)
 
         for model in models_to_try:
             for attempt in range(2):

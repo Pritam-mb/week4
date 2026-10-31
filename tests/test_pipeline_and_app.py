@@ -65,13 +65,13 @@ class TestPipelineAndApp(unittest.TestCase):
     def test_coroner_output_validation(self):
         # Valid output with WORKFLOW enum
         data = {
-            "cause": "shut_down",
+            "cause": "shut_down_by_owner",
             "time_of_death": "July 2013",
             "confidence": 0.95,
             "evidence_ids": ["E001", "E002"],
         }
         validated = CoronerOutput(**data)
-        self.assertEqual(validated.cause, "shut_down")
+        self.assertEqual(validated.cause, "shut_down_by_owner")
         self.assertEqual(validated.time_of_death, "July 2013")
         self.assertEqual(len(validated.evidence_ids), 2)
 
