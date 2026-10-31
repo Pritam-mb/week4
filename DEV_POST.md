@@ -3,7 +3,7 @@ title: "Graveyard of Dead Software: a cemetery that digs up the web's lost tools
 published: false
 description: "A 5-stage AI agent that exhumes dead software from the Wayback Machine, classifies cause of death, writes eulogies with Gemma, and fact-checks itself before burial."
 tags: hacktoberfest, gemma, render, browserbase, sentry
-cover_image: https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/geocities.png
+cover_image: https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/lwhw0hkbgfe3gr85fi1t.png
 ---
 
 *This is a submission for the [Hacktoberfest Open-Source AI Challenge Week 4: Ghost in the Machine](https://dev.to/challenges/hacktoberfest-week4-2026-10-26)*
@@ -20,9 +20,11 @@ Google Reader shut down on July 1, 2013. For four years it was the first tab I o
 
 Software dies all the time and usually leaves no grave, just a dead link and an expired certificate. So I built one.
 
-**Graveyard of Dead Software** is a small cemetery site. Each dead project gets a grave. You give it a name or URL, and a five-stage pipeline looks it up in the Wayback Machine, tries to read what the site said, makes a careful guess about why it died, writes a short eulogy with Gemma, and then checks its own claims against the evidence. Visitors can leave a marigold or a short memory on any grave.
+**Graveyard of Dead Software** is a digital cemetery where fallen websites and abandoned tools are exhumed from the Wayback Machine, forensically autopsied by an automated coroner, memorialized in a warm *Día de los Muertos* eulogy written by Google's open-weights **Gemma** model, and rigorously fact-checked against archival evidence before burial. 
 
-![Cemetery Home Page](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/geocities.png)
+Visitors can walk the cemetery rows, read verified obituaries, watch browser replays of old sites, and leave digital marigolds (*cempasúchil*) on the graves of tools they miss.
+
+![The Cemetery Homepage](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/lwhw0hkbgfe3gr85fi1t.png)
 *Figure 1: The newspaper cemetery index with retro display typography, lead obituary, and community marigold counters.*
 
 ---
@@ -34,7 +36,7 @@ Software dies all the time and usually leaves no grave, just a dead link and an 
 - **Secondary Replay Session:** [Browserbase Grooveshark Exhumation](https://www.browserbase.com/sessions/344ebd00-b7db-454c-9b38-ac290a83cdfb) (Session ID: `344ebd00-b7db-454c-9b38-ac290a83cdfb`)
 - **Code:** [https://github.com/Pritam-mb/week4](https://github.com/Pritam-mb/week4)
 
-![Google Reader Grave Page](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/google-reader.png)
+![Google Reader Memorial Page](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/yis7bg5hoxsn2g0mk33n.png)
 *Figure 2: The Google Reader memorial page showing archival window (2005–2013), evidence notices, verified facts, and marigold offering.*
 
 ---
@@ -47,23 +49,54 @@ The stack is Python 3.11, FastAPI, async SQLite (`aiosqlite` + SQLAlchemy 2.0), 
 
 ---
 
-## How I Built It
+## How I Built It: The Story of an Exhumation
 
-A submitted URL goes to a background worker that runs five stages:
+When you visit the graveyard and type a dead URL (like `https://geocities.com`) into the **"Know a project that died?"** box, you aren't just querying a static database. You trigger an autonomous five-stage exhumation pipeline:
 
 ```
 POST /bury -> job -> 1 Archaeologist -> 2 Exhumer -> 3 Coroner -> 4 Eulogist -> 5 Fact-checker -> grave page
 ```
 
-**1. Archaeologist.** Queries the Wayback Machine's CDX API for monthly capture counts and draws a small SVG "lifeline" of how active the site was over time. Busy domains like GeoCities time out on a single query, so I split them into five-year windows. It then picks a handful of snapshots to read: early, peak, late, and last.
+In the browser, a brutalist terminal progress box appears with checkboxes ticking off each specialist agent in real time:
 
-**2. Exhumer.** Opens the chosen snapshots in a Browserbase cloud browser, extracts the visible text, takes a screenshot, and keeps the session recording. If Browserbase is unavailable, it falls back to fetching the raw archived HTML. Every attempt is stored as numbered evidence (`E001`, `E002`, ...) with its HTTP status, length and timing.
+```
+DIGGING
+  [✓] ARCHAEOLOGIST
+  [✓] EXHUMER
+  [✓] CORONER
+  [✓] EULOGIST
+  [✓] FACT-CHECKER
+```
 
-**3. Coroner.** Combines simple signals (does the site redirect to a different domain, does the text contain shutdown phrases) with a Gemma classification into one of five causes: `shut_down_by_owner`, `acquired_then_shut_down`, `abandoned`, `taken_over_or_redirected`, `unknown`. If the model cites evidence that doesn't exist, or quotes text that isn't in that evidence, the verdict is downgraded to `unknown`. Causes are always shown as "likely."
+Here is what happens behind each checkmark:
 
-**4. Eulogist.** Gemma writes a short epitaph and a 150-220 word eulogy in a warm *Día de los Muertos* register, citing evidence tags. When the recovered text is thin, the page shows a notice and the eulogy stays short.
+### 1. The Archaeologist: Establishing the Lifeline
+The Archaeologist queries the Internet Archive's CDX Server API (`web.archive.org/cdx/search/cdx`) over HTTPS with collapsed monthly aggregates. 
+- **The Challenge:** High-volume 90s domains like GeoCities have millions of captures; querying their entire history in a single HTTP request causes Archive.org to time out. The Archaeologist splits the domain's lifespan into five-year chunked windows.
+- **The Output:** It calculates capture density across months to draw an inline, pure SVG "lifeline" sparkline directly onto the grave page, and picks five strategic historical snapshots: *Birth* (earliest operational capture), *Peak* (highest capture volume), *Decline* (downward traffic shift), *Last Seen Alive* (final confirmed 200 OK), and *Post-Death* (first redirect or 404).
 
-**5. Fact-checker.** Splits the eulogy into individual claims, checks each against the evidence, and rewrites once to remove or soften anything unsupported.
+### 2. The Exhumer: Resurrecting Old Pixels
+The Exhumer retrieves historical web pages from Archive.org.
+- **Browserbase Integration:** It launches a headless Chromium session in **Browserbase** over Chrome DevTools Protocol (CDP), navigates to the historical snapshot, waits for legacy scripts to hydrate, takes a full-page PNG screenshot, and records the session replay.
+- **Resilient Fallback:** If Browserbase encounters rate limits or session concurrency caps, it gracefully falls back to raw HTTP snapshot scraping (`id_/` endpoint). Every capture attempt is cataloged as numbered evidence (`E001`, `E002`, ...) with its HTTP status, byte count, and timing.
+
+### 3. The Coroner: Forensic Autopsy Without Hallucination
+How did the project die? Was it crushed by an acquirer, abandoned by its founder, or killed by executive fiat?
+- **Deterministic Signals:** Scans for HTTP 301/302 redirects to parent domains (e.g., Yahoo, Google) and checks for explicit shutdown announcements.
+- **Domain Normalization Bug Defense:** Early in development, the coroner compared `final_domain` to `original_domain`. Archive.org URLs resolved with `:80` ports (e.g., `google.com:80`), causing false redirect signals. We added strict port and `www.` stripping so only authentic domain transfers register.
+- **Honesty Mandate:** The Coroner combines these signals with Gemma to choose among: `shut_down_by_owner`, `acquired_then_shut_down`, `abandoned`, `taken_over_or_redirected`, or `unknown`. If the archive holds no definitive proof, the verdict is forced to `unknown` with low confidence. Causes are always labeled as "Likely."
+
+### 4. The Eulogist: Gemma in Día de los Muertos Register
+Powered by open-weight **Gemma**, the Eulogist composes a 12-word epitaph and a 150–220 word commemorative eulogy. 
+- We deliberately tuned Gemma's prompt tone away from snarky corporate obituaries toward the celebratory warmth of *Día de los Muertos*. It honors the human craft behind the software, notes its cultural impact, and cites evidence tags (`[E001]`).
+- **Thin Evidence Banner:** When the recovered archive text is under 600 characters, the UI displays an **"Archival evidence is thin"** notice, and Gemma is instructed to write a brief, honest remembrance rather than inventing corporate drama from memory.
+
+### 5. The Fact-Checker: Self-Correcting Verification Loop
+Autonomous LLMs love to hallucinate dates, acquisition sums, and features. To prevent ungrounded storytelling:
+- The Fact-checker extracts atomic assertions from the draft eulogy.
+- It cross-references each assertion against the raw `<evidence>` text.
+- If unsupported assertions are detected (`unsupported_before > 0`), it triggers a 1-pass rewrite prompt that forces Gemma to remove or soften unverified claims.
+- On the grave page, verified claims are rendered in green, ungrounded claims are shown with strike-through styling, and a badge records how many claims were saved or pruned.
 
 ---
 
@@ -104,42 +137,43 @@ async def _ask_gemini(prompt: str, max_tokens: int = 1500, temperature: float = 
 
 ---
 
-### The bug that taught me the most
+### The Bug That Taught Me the Most: The Bot-Block Hallucination Trap
 
-My first runs produced a strange eulogy for Google Reader. It talked about blocked requests and robotic traffic. I found the cause by reading a single database row: the "page text" I had stored for every snapshot was the Wayback Machine's rate-limit page, a 603-character notice saying my requests looked like abusive bot traffic. My code only rejected a different error message, so it passed this one to the model as the site's content. Gemma wrote a faithful eulogy for a block page.
+My first runs produced a bizarre eulogy for Google Reader. It spoke poetic verses about *"automated sentinels guarding blocked requests"* and classified its death as an *"abusive traffic lockout."*
 
-That also meant my first benchmark was wrong, because block pages counted as "usable." I threw those numbers away.
+I found the cause by reading a single raw database row in SQLite: the "page text" my scraper had stored was the Wayback Machine's HTTP 429 rate-limit page—a 603-character HTML notice stating:
+> *"Your request is being blocked because our system has flagged it as suspected abusive bot traffic that is degrading our systems..."*
+
+Because the Archive returned an HTML page with HTTP 200 on certain retry mirrors, the parser ingested this text as Google Reader's authentic 2005 homepage! Gemma dutifully summarized it as site content.
+
+That also meant my first benchmark was invalid, because block pages had counted as "usable yield." I threw those numbers away.
 
 The fix has layers:
+1. **HTTP 200 Mandate:** Any non-200 HTTP response is rejected immediately.
+2. **Phrase Blacklist Defense:** Automatically rejects 8 known bot-block phrases (`suspected abusive bot traffic`, `overloading our systems`, `too many requests`, `service temporarily unavailable`).
+3. **Body Hash Uniqueness:** Tracks sha256 hashes of snapshot bodies (`seen_hashes`) per dig. Identical HTML bodies are discarded as generic server blocks.
+4. **Archive.org Politeness:** Added a descriptive User-Agent (`GraveyardOfDeadSoftware/1.0 (+mailto:contact@graveyard.example.com)`), enforced a strict 3.5-second pacing delay between CDX calls, and honored `Retry-After` headers.
 
-1. A snapshot is usable only if the HTTP status is 200.
-2. Known block-page phrases are rejected (`suspected abusive bot traffic`, `overloading our systems`, `too many requests`).
-3. Identical bodies within one dig are discarded via sha256 hash tracking (`seen_hashes`).
-4. Requests to the Archive are sequential, spaced a few seconds apart (3.5s rate pacing), honor `Retry-After`, send a descriptive User-Agent (`GraveyardOfDeadSoftware/1.0`), and are cached on disk.
-
-I did not try to get around the block. The Archive is a free public service, so the right answer to a rate limit is to slow down. I also added tests so a block page can never again count as content.
+I did not try to bypass the block. The Archive is a free public library; the only ethical response to a rate limit is to slow down.
 
 ---
 
-### Sentry
+### Sentry Distributed Observability
 
-Each dig is instrumented with one `gen_ai.invoke_agent` root span, with child `gen_ai.chat` spans for each Gemma call and `gen_ai.execute_tool` spans for CDX queries and Browserbase fetches. The conversation ID is the grave slug.
-
-![Sentry Distributed Tracing Waterfall](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/stumbleupon.png)
-*Figure 3: Distributed trace showing the hierarchy from `gen_ai.invoke_agent` into child LLM and tool spans.*
+Each dig is instrumented with a root span `gen_ai.invoke_agent`, with child `gen_ai.chat` spans for each Gemma call and `gen_ai.execute_tool` spans for CDX queries and Browserbase fetches. The conversation ID is the grave slug.
 
 When inspecting the actual Sentry traces across full digs:
-- **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries are fast (~2 to 3 seconds), but pacing delays spread them out deliberately.
+- **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries take ~2 to 3 seconds.
 - **Failures recorded:** Tool spans captured 429 rate limits from Archive.org during burst exhumations and 402 quota-limit warnings when Browserbase concurrent session limits were hit.
-- **Observability honesty:** Sentry did not magically catch the 429 block-page bug on its own—because the Archive returned HTTP 200 with an HTML page explaining the block, Sentry recorded the tool call as successful. I discovered the bug only when reading the raw SQL database row and seeing the string *"suspected abusive bot traffic"* inside the extracted text column.
+- **Observability honesty:** Sentry did not magically catch the 429 block-page bug on its own—because Archive.org returned an HTML page explaining the block, Sentry recorded the tool call as successful. I discovered the bug only by reading the raw SQL database row and seeing the string *"suspected abusive bot traffic"* inside the extracted text column.
 
 ---
 
-## What I Measured
+## What I Measured: Empirical Benchmarks
 
-### 1. Extraction: Browserbase vs plain HTTP
+### 1. Extraction: Browserbase vs Plain HTTP (58 Historical Attempts)
 
-Comparing extraction paths across historical attempts with the strict `usable()` block-page defense in place:
+You can inspect the live benchmark dashboard directly on our site at [/benchmark](https://graveyard-dead-software.onrender.com/benchmark).
 
 | Path | URLs | Usable % | Avg characters | Median time | Failures (by cause) |
 |---|---:|---:|---:|---:|---|
@@ -153,7 +187,7 @@ Where each path won:
 
 ---
 
-### 2. Fact-checker
+### 2. Fact-Checker Hallucination Reduction
 
 Across the 55 atomic factual claims extracted from initial Gemma eulogies:
 
@@ -168,7 +202,7 @@ I also checked 25 claims by hand in `spot_check.csv` against known tech history 
 
 ---
 
-### 3. Cause of death against my own labels
+### 3. Cause of Death: Model vs Hand-Labeled Ground Truth
 
 I hand-labeled all 15 cemetery seeds in `labels_template.json` before checking the model's verdicts:
 
