@@ -69,6 +69,11 @@
           {% endfor %}
         </div>
         {% endif %}
+        {% if (grave.extracted_text or '') | length < 600 %}
+        <div class="evidence-thin-badge" style="font-family: var(--font-data); font-size: 0.7rem; color: var(--ash); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 0.5rem; border-top: 1px dashed var(--line); padding-top: 0.4rem;">
+          Archival evidence is thin (&lt;600 chars recovered)
+        </div>
+        {% endif %}
       </div>
     </div>
 
@@ -76,7 +81,7 @@
     <div class="eulogy-section">
       {% set _eulogy = grave.eulogy_verified or grave.eulogy or "Little is left of it &mdash; the archive holds only silence." %}
       <div class="eulogy-body drop-cap">{{ _eulogy }}</div>
-      <div class="eulogy-meta" style="font-family: var(--font-data); font-size: 0.75rem; color: var(--ash); margin-top: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase;">Eulogy written by {{ grave.llm_model or 'gemini-flash-lite-latest' }}</div>
+      <div class="eulogy-meta" style="font-family: var(--font-data); font-size: 0.75rem; color: var(--ash); margin-top: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase;">Eulogy written by {{ grave.llm_model or 'gemma-4-26b-a4b-it' }}</div>
     </div>
 
     <!-- Claims line -->
