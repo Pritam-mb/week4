@@ -1333,7 +1333,9 @@ async def _ask_gemini(prompt: str, max_tokens: int = 1500, temperature: float = 
             for attempt in range(2):
                 try:
                     def _call():
-                        return client.models.generate_content(model=model, contents=prompt)
+                        from google.genai import types
+                        config = types.GenerateContentConfig(temperature=temperature)
+                        return client.models.generate_content(model=model, contents=prompt, config=config)
                     resp = await loop.run_in_executor(None, _call)
                     text = resp.text
                     p_tok = getattr(resp.usage_metadata, "prompt_token_count", 0) if hasattr(resp, "usage_metadata") else 0
