@@ -30,7 +30,8 @@ Software dies all the time and usually leaves no grave, just a dead link and an 
 ## Demo
 
 - **Live site:** [https://graveyard-dead-software.onrender.com/](https://graveyard-dead-software.onrender.com/) *(deployed on Render, verified in private browsing)*
-- **Live Replay Session:** [Browserbase Exhumation Recording](https://www.browserbase.com/sessions/7700becb-935a-4217-846b-b217a1e99a13)
+- **Primary Replay Session:** [Browserbase Google Reader Exhumation](https://www.browserbase.com/sessions/7700becb-935a-4217-846b-b217a1e99a13) (Session ID: `7700becb-935a-4217-846b-b217a1e99a13`)
+- **Secondary Replay Session:** [Browserbase Grooveshark Exhumation](https://www.browserbase.com/sessions/344ebd00-b7db-454c-9b38-ac290a83cdfb) (Session ID: `344ebd00-b7db-454c-9b38-ac290a83cdfb`)
 - **Code:** [https://github.com/Pritam-mb/week4](https://github.com/Pritam-mb/week4)
 
 ![Google Reader Grave Page](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/google-reader.png)
@@ -221,7 +222,7 @@ A cemetery whose brain could be switched off overnight by a single corporate API
 
 - **Overall "Ghost in the Machine":** A complete five-stage pipeline that exhumes dead software from the archives of the web, with measured benchmarks, real failure modes, and forensic honesty.
 - **Gemma:** Powered by `gemma-4-26b-a4b-it` for coroner classifications, Día de los Muertos eulogies, and self-correcting claim verification. All 15 graves are attributed to Gemma.
-- **Browserbase:** Cloud-browser CDP extraction, full-page retro screenshot captures, replay session recordings, and an empirical 58-attempt comparison against plain HTTP.
+- **Browserbase:** Cloud-browser CDP extraction, full-page retro screenshot captures, replay session recordings (Session IDs: `7700becb-935a-4217-846b-b217a1e99a13`, `344ebd00-b7db-454c-9b38-ac290a83cdfb`), and an empirical 58-attempt comparison against plain HTTP.
 - **Sentry:** Distributed OpenTelemetry GenAI agent tracing across every dig stage, tracking prompt/completion tokens, latency per stage, and tool error handling.
 - **Render:** Hosted live on Render with automated health checks at `/health` and seed bundle hydration.
 
