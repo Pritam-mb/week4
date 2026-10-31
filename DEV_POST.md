@@ -80,10 +80,10 @@ The Exhumer retrieves historical web pages from Archive.org.
 - **Session Verification:** Because Browserbase session replays are private to workspace accounts, the session inspector is captured below. It shows the browser navigating Archive.org endpoints, streaming the session replay at 32 seconds duration, and executing DOM extractions.
 - **Resilient Fallback:** If Browserbase encounters rate limits or session concurrency caps, it gracefully falls back to raw HTTP snapshot scraping (`id_/` endpoint). Every capture attempt is cataloged as numbered evidence (`E001`, `E002`, ...) with its HTTP status, byte count, and timing.
 
-![Browserbase Session Replay Inspector](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_session_replay.jpg)
+![Browserbase Session Replay Inspector](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_session_replay.png)
 *Figure 3: Browserbase session inspector showing session `d4521703-fcd3-4218-bf0b-fa558e9a89bb` rendering historical Archive.org pages over CDP.*
 
-![Browserbase Sessions Log](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_sessions_list.jpg)
+![Browserbase Sessions Log](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_sessions_list.png)
 *Figure 4: Browserbase completed sessions log tracking exhumations across historical targets.*
 
 ### 3. The Coroner: Forensic Autopsy Without Hallucination
@@ -97,7 +97,7 @@ Powered by open-weight **Gemma**, the Eulogist composes a 12-word epitaph and a 
 - We deliberately tuned Gemma's prompt tone away from snarky corporate obituaries toward the celebratory warmth of *Día de los Muertos*. It honors the human craft behind the software, notes its cultural impact, and cites evidence tags (`[E001]`).
 - **Thin Evidence Banner:** When the recovered archive text is under 600 characters, the UI displays an **"Archival evidence is thin (<600 chars recovered)"** notice, and Gemma is instructed to write a brief, honest remembrance rather than inventing corporate drama from memory.
 
-![Thin Evidence Badge on Flash Player Grave](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/flash_player_grave_ui.jpg)
+![Thin Evidence Badge on Flash Player Grave](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/flash_player_grave_ui.png)
 *Figure 5: The Flash Player grave showing the "Archival evidence is thin" notice when Wayback returns minimal text, keeping the eulogy honest.*
 
 ### 5. The Fact-Checker: Self-Correcting Verification Loop
