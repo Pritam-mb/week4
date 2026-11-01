@@ -35,16 +35,16 @@ So I built a cemetery.
 
 - **What:** Graveyard of Dead Software is an autonomous AI archaeology pipeline and digital cemetery. You submit a dead URL, and five specialist agents query the Wayback Machine, render the historical site via Browserbase, autopsy the cause of death, write a *Día de los Muertos* eulogy with Google's Gemma, and audit every factual assertion against recovered evidence before burial.
 - **The Ghost in the Machine:** Language models don't just hallucinate out of thin air—they faithfully summarize corrupted inputs. When the Wayback Machine rate-limited our scraper (HTTP 429), Gemma dutifully summarized the 603-character bot-block notice as Google Reader's authentic 2005 homepage. We engineered a 4-layer defense (signature blacklists, hash deduplication, 200 OK mandates, and politeness pacing) to stop poisoned exhumations.
-- **The Extraction Benchmark:** Across 58 historical snapshots, plain HTTP was 4.5x faster on static 1990s web pages (3.3s vs 15.1s median), but Browserbase CDP recovered **57% more text depth** (1,514 vs 965 chars) on dynamic mid-2000s applications like Grooveshark.
+- **The Extraction Benchmark (overall, unpaired):** Across 58 historical snapshots, plain HTTP was faster (3.3 s vs 15.1 s median), while Browserbase CDP recovered more text per page on average (1,514 vs 965 characters) and is the only path that provides screenshots and replays. These were separate, unpaired runs and early curl fetches captured rate-limit block pages, so treat the gap as indicative.
 - **The Fact-Checker:** Auditing 57 atomic claims across graves, our 1-pass corrective rewrite loop purged **47.6% of ungrounded hallucinations** (dropping unsupported claims from 36.8% to 19.3%). Human spot-checks agreed on 19 of 25 claims (76.0%).
-- **Forced Humility:** When Wayback rate-limited our sequential seed runs (49 of 68 attempts failed with 429), 11 graves recovered 0 text. Instead of fabricating corporate drama from memory, Gemma abstained with cause `unknown` and an honest `<600 chars recovered` warning.
+- **Forced Humility:** When Wayback rate-limited our sequential seed runs (49 of 68 attempts hit HTTP 429s and 12 timed out), 11 graves recovered 0 text. Instead of fabricating corporate drama from memory, Gemma abstained with cause `unknown` and an honest `<600 chars recovered` warning.
 - **Everything is Open & Live:** Live on Render ([graveyard-dead-software.onrender.com](https://graveyard-dead-software.onrender.com/)), MIT licensed ([Pritam-mb/week4](https://github.com/Pritam-mb/week4)), with OpenTelemetry GenAI agent tracing in Sentry and recorded replays in Browserbase.
 
 ### 3 Findings in 30 Seconds
 
-1. **Hallucination is poisoned input, not model rebellion.** The model didn't invent "automated sentinels guarding blocked requests" from thin air. It summarized an Archive.org 429 rate-limit notice that returned with HTTP 200. Bad scraping poisons AI archaeology.
+1. **Hallucination often starts as poisoned input, not model rebellion.** The model didn't invent automated sentinels from thin air; it summarized an Archive.org 429 rate-limit notice that returned with HTTP 200. Bad scraping poisons AI archaeology. (When evidence was absent, Gemma also occasionally drifted to memory before the fact-checker caught it).
 2. **Thin evidence requires forced humility.** A model that knows the answer but stays quiet without evidence is less flashy in a demo, and far more trustworthy. 11 of 15 graves abstained with cause `unknown` because the scraper retrieved zero clean characters.
-3. **Reproducible benchmarks need unpaired transparency.** Plain HTTP is blazing fast for early HTML, but modern and mid-2000s web apps need headless Chromium hydration over CDP to expose their DOM text.
+3. **Reproducible benchmarks need unpaired transparency.** Plain HTTP is fast for static HTML, but headless Chromium hydration over CDP is required to capture screenshots, follow complex redirects, and expose dynamic DOM text.
 
 ---
 
@@ -52,7 +52,7 @@ So I built a cemetery.
 
 - **Live site (Render):** [https://graveyard-dead-software.onrender.com/](https://graveyard-dead-software.onrender.com/) *(Free tier: if the container is sleeping, the first load takes ~50 seconds to wake up. Verified fully operational in private windows).*
 - **Benchmark dashboard:** [https://graveyard-dead-software.onrender.com/benchmark](https://graveyard-dead-software.onrender.com/benchmark)
-- **Verified Browserbase Replay Session:** Session ID `d4521703-fcd3-4218-bf0b-fa558e9a89bb` *(Exhuming Picnik from `web.archive.org` over CDP, 32s in `us-west-2`)*
+- **Verified Browserbase Replay Session:** Session ID `d4521703-fcd3-4218-bf0b-fa558e9a89bb` *(Exhuming Picnik from `web.archive.org` over CDP, 32s in `us-west-2`. Note: Browserbase cloud session replays expire after ~7 days on the free tier, which is why a permanent screen recording GIF is embedded below in Figure 5)*.
 - **Code:** [https://github.com/Pritam-mb/week4](https://github.com/Pritam-mb/week4)
 
 ### Anatomy of a Memorial Page: An Interactive Digital Shrine
@@ -87,7 +87,7 @@ You can test exhuming a dead project live directly on the site:
 1. Open the cemetery at [https://graveyard-dead-software.onrender.com/](https://graveyard-dead-software.onrender.com/).
 2. On the right sidebar, locate the **"Know a project that died?"** box.
 3. Enter any dead or defunct website (e.g. `https://flappybird.com`, `https://orkut.com`, or `https://path.com`) and click **"Bury a Project"**.
-4. The live terminal progress modal executes the five-stage pipeline in real time:
+4. The live terminal progress modal executes the five-stage pipeline in real time. *(Safety note: If Archive.org rate-limits the live dig or the container is waking up, you can immediately open and inspect any of the 15 existing graves).*
 
 ![Live Terminal Digging Stepper](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_dig_stepper.gif)
 *Figure 3: Five-stage terminal exhumation stepping through Archaeologist, Exhumer, Coroner, Eulogist, and Fact-Checker before automatically redirecting to the completed grave.*
@@ -126,9 +126,6 @@ If Browserbase hits a session cap or times out, it falls back to fetching the ra
 ![Browserbase Session Replay in Action](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_screen_recording.gif)
 *Figure 5: Live screen recording of a Browserbase session replay playing back the historical archive snapshot over CDP.*
 
-![Browserbase Sessions Log](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_sessions_list.png)
-*Figure 6: Browserbase completed sessions log tracking historical exhumations.*
-
 ### 3. The Coroner rules on the cause of death
 Was it shut down by its owner, bought and then killed, abandoned, or taken over?
 
@@ -142,10 +139,10 @@ Gemma writes a 12-word epitaph and a 150–220-word eulogy, and every factual se
 When less than 600 characters were recovered, the grave shows **"Archival evidence is thin (<600 chars recovered)"**, and Gemma is told to write a short, honest remembrance instead of filling the gaps from memory.
 
 ![Thin evidence notice on Flash Player's grave](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/flash_player_grave_ui.png)
-*Figure 7: Flash Player's grave. The archive returned minimal text, and the eulogy honestly says so.*
+*Figure 6: Flash Player's grave. The archive returned minimal text, and the eulogy honestly says so.*
 
 ![Grooveshark grave with rich evidence](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/grooveshark_grave_ui.png)
-*Figure 8: A grave with rich evidence (Grooveshark): note the evidence list, the [E001] citations in the eulogy, and the verified claim badges.*
+*Figure 7: A grave with rich evidence (Grooveshark): note the evidence list, the [E001] citations in the eulogy, and the verified claim badges.*
 
 ### 5. The Fact-checker audits the eulogy
 Language models love inventing acquisition dates and corporate drama. So the last stage breaks the eulogy into individual claims, checks each against the evidence, and, if any is unsupported, makes Gemma rewrite it once to remove or soften those claims. The grave page shows every claim marked OK or FAIL.
@@ -154,7 +151,7 @@ Language models love inventing acquisition dates and corporate drama. So the las
 
 ## Using Gemma
 
-Every word on the site comes from `gemma-4-26b-a4b-it`, called through the Gemini API.
+Every verdict, epitaph, and eulogy on the site comes from `gemma-4-26b-a4b-it`, called through the Gemini API.
 
 On that hosted endpoint, requests with a separate system instruction or automatic function calling came back as 500 errors. So all instructions, including the JSON schema, go directly into the user prompt, every response goes through Pydantic validation, and invalid JSON triggers one corrective retry.
 
@@ -172,22 +169,21 @@ Archived pages are untrusted input, so they're wrapped in `<evidence id="E001">.
 
 One of my first runs produced a strange eulogy for Google Reader: lyrical verses about automated systems guarding blocked requests and robotic traffic.
 
-My tests passed and the page loaded fine. I only found the problem by opening the SQLite database and reading the row by hand.
+My tests passed and HTTP status codes were green. I only found the problem by opening the SQLite database and reading the raw row by hand.
 
 The "page text" I had stored for Google Reader's 2005 homepage was this:
 > *"Your request is being blocked because our system has flagged it as suspected abusive bot traffic that is degrading our systems..."*
 
-It was the Wayback Machine's rate-limit page. On some retry paths it came back as an ordinary HTML page with HTTP 200, and my parser treated it as the real site. Gemma did exactly what it was told and faithfully summarized the evidence it was given. The model wasn't hallucinating. My pipeline was feeding it the wrong evidence.
+It was the Wayback Machine's rate-limit page. On some retry paths it came back as an ordinary HTML page with HTTP 200, and my parser treated it as the real site. Gemma did exactly what it was told and faithfully summarized the evidence it was given. The model wasn't hallucinating. My pipeline was feeding it poisoned evidence.
 
-That also invalidated my first benchmark, because block pages had counted as "usable." I threw those numbers away and re-ran everything.
+That also revealed that my initial benchmark was suspect, because rate-limit pages had been counted as "usable content." I recognized the flaw, discarded those unvetted numbers, and built a 4-layer defense:
 
-The fix has four layers:
-1. **200 or nothing:** Any non-200 response is rejected.
-2. **Block-page phrases:** Eight known signatures (`suspected abusive bot traffic`, `overloading our systems`, etc.) are rejected even when the response is a 200.
-3. **Duplicate bodies:** I hash every snapshot body (`sha256`), and identical bodies within one dig are discarded.
-4. **Politeness:** A descriptive User-Agent, 3.5 seconds between CDX calls, and respect for `Retry-After`.
+1. **200 OK Mandate:** Any non-200 response is immediately rejected.
+2. **Block-Page Signature Blacklist:** Eight known signatures (`suspected abusive bot traffic`, `overloading our systems`, etc.) are rejected even when the response returns with HTTP 200.
+3. **Duplicate Body Deduplication:** I hash every snapshot body (`sha256`), and identical bodies within one exhumation run are discarded.
+4. **Politeness Pacing:** A descriptive User-Agent, 3.5 seconds between CDX calls, and strict respect for `Retry-After`.
 
-I didn't try to get around the block. The Internet Archive is a free public library, and the right response to its rate limit is to slow down. I also added unit tests so a block page can never again count as content.
+I didn't try to bypass the block. The Internet Archive is a free public library, and the right response to its rate limit is to slow down. I also added unit tests so a block page can never again count as content.
 
 ---
 
@@ -196,47 +192,43 @@ I didn't try to get around the block. The Internet Archive is a free public libr
 Each burial is one `gen_ai.invoke_agent` trace with the grave slug as its conversation ID. Every Gemma call is a `gen_ai.chat` span with token counts, and every CDX query, Browserbase session, and HTTP fetch is a `gen_ai.execute_tool` span.
 
 ![Sentry Distributed Trace Waterfall](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/gn9swknh7gpcs3igzqfm.png)
-*Figure 9: Sentry distributed trace waterfall showing gen_ai.invoke_agent branching into chat and tool spans.*
-
-![Sentry Performance Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/i4hm0nnq9gavsbfg8c5y.png)
-*Figure 10: Sentry transactions dashboard showing agent execution latencies and throughput.*
+*Figure 8: Sentry distributed trace waterfall showing gen_ai.invoke_agent branching into chat and tool spans.*
 
 #### Sentry GenAI Pipeline Latency Waterfall (5 Stages)
 
-Below is the live Sentry pipeline telemetry rendered directly on the evaluation dashboard:
+Below is the live pipeline telemetry rendered directly on the evaluation dashboard:
 
 ![Sentry GenAI Pipeline Latency Waterfall](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_sentry_waterfall.png)
-*Figure 11: The live Sentry GenAI pipeline latency waterfall displaying median p50 and p95 timings across all 5 specialist agent stages.*
+*Figure 9: The evaluation dashboard's latency waterfall displaying median p50 and p95 timings across all 5 specialist agent stages.*
 
-Instrumenting the pipeline with OpenTelemetry GenAI semantic conventions (`gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.agent.name`, `gen_ai.tool.name`) reveals the end-to-end latency distribution (median p50: ~33.9s):
+Instrumenting the pipeline with OpenTelemetry GenAI semantic conventions (`gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.agent.name`, `gen_ai.tool.name`) reveals the end-to-end stage latency profile (sum of stage medians: ~33.9s):
 
-1. **Archaeologist (`gen_ai.execute_tool` &middot; `query_cdx_lifeline`):** **2.4s p50** (p95: 5.1s, 7.1% of total dig) — Rapidly interrogates the Wayback CDX API in 5-year windows to establish the first and last recorded capture dates.
-2. **Exhumer (`gen_ai.execute_tool` &middot; `browserbase_exhume`):** **15.1s p50** (p95: 29.9s, 44.5% of total dig) — Dominates pipeline runtime as headless Chromium navigates Archive.org, follows redirects, renders dynamic client DOM, and captures screenshots over CDP.
-3. **Coroner (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **5.2s p50** (p95: 8.6s, 15.3% of total dig) — Ingests recovered text and outputs structured JSON classifying the cause of death.
-4. **Eulogist (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **6.4s p50** (p95: 10.2s, 18.9% of total dig) — Crafts the bilingual Día de los Muertos remembrance with inline evidence citations.
-5. **Fact-Checker (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **4.8s p50** (p95: 7.9s, 14.2% of total dig) — Extracts atomic claims, checks them against the recovered text, and strikes unverified fabrications.
+1. **Archaeologist (`gen_ai.execute_tool` &middot; `query_cdx_lifeline`):** **2.4s p50** (p95: 5.1s, 7.1% of pipeline) — Rapidly interrogates the Wayback CDX API in 5-year windows to establish the first and last recorded capture dates.
+2. **Exhumer (`gen_ai.execute_tool` &middot; `browserbase_exhume`):** **15.1s p50** (p95: 29.9s, 44.5% of pipeline) — Dominates runtime as headless Chromium navigates Archive.org, follows redirects, renders dynamic client DOM, and captures screenshots over CDP.
+3. **Coroner (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **5.2s p50** (p95: 8.6s, 15.3% of pipeline) — Ingests recovered text and outputs structured JSON classifying the cause of death.
+4. **Eulogist (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **6.4s p50** (p95: 10.2s, 18.9% of pipeline) — Crafts the Día de los Muertos remembrance with inline evidence citations.
+5. **Fact-Checker (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **4.8s p50** (p95: 7.9s, 14.2% of pipeline) — Extracts atomic claims, checks them against the recovered text, and strikes unverified fabrications.
 
 ---
 
 #### Archival Crawl Error Distribution (68 Attempts)
 
-Scrolling down the observability report reveals why automated archaeological digs fail:
+Scrolling down the observability report reveals the failure landscape encountered during automated archaeological exhumation:
 
 ![Archival Crawl Error Breakdown](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_sentry_errors.png)
-*Figure 12: Stacked archival error distribution diagnosing crawler bottlenecks: 49 Wayback 429 rate limits, 12 timeouts, and 7 unblocked 200s.*
+*Figure 10: Archival crawl error breakdown across 68 sequential exhumation attempts during the seed run: 49 Wayback 429 rate limits, 12 timeouts, and 7 unblocked 200s.*
 
-Tracking span exceptions in Sentry diagnosed the failure landscape across 68 sequential exhumation attempts:
-- **Wayback HTTP 429 Rate Limits:** **49 / 68 attempts (72.1%)** — The Internet Archive's anti-abuse sentinels actively throttling automated crawlers.
-- **Heavy Archival Timeouts:** **12 / 68 attempts (17.6%)** — Massive historical snapshots exceeding the 30-second connection window.
-- **Clean HTTP 200 Extractions:** **7 / 68 attempts (10.3%)** — Successful, unblocked archival recoveries.
-- **Browserbase Minute Quota (HTTP 402):** **3 attempts** during benchmark runs when concurrent browser minute caps were reached.
+Querying exhumation attempt logs directly from SQLite (`exhume_attempts`) and correlating with Sentry span exceptions diagnosed the failure landscape across 68 sequential attempts during the seed run:
+- **Total Attempts:** 68
+- **Total Failures:** 61 (89.7% failure rate across attempts)
+- **Wayback HTTP 429 Rate Limits:** **49 of 61 failures (80.3%)** — Archive.org's anti-abuse sentinels actively throttling automated crawlers.
+- **Heavy Archival Timeouts:** **12 of 61 failures (19.7%)** — Massive historical snapshots exceeding the 30-second connection window.
+- **Clean HTTP 200 Extractions:** **7 of 68 attempts (10.3%)** — 4 yielded usable historical text (Grooveshark 1,630 chars, Pebble 1,595 chars, AltaVista 543 chars, Picnik 237 chars), while 3 were minimal redirect stubs or empty bodies.
+- **Browserbase Minute Quota (HTTP 402):** 3 attempts during offline diagnostic runs when concurrent browser minute caps were reached.
 
-**Conclusion:** **89.7% of crawler failures** were caused by upstream rate limits on `web.archive.org`, not pipeline crashes or LLM errors.
-
-What the traces showed:
-- **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries take ~2 to 3 seconds.
-- **What fails:** Tool spans captured HTTP 429 rate limits from Archive.org during sequential exhumations and 402 quota-limit warnings when Browserbase concurrent session limits were hit.
-- **What tracing can't see:** The block-page bug. Sentry recorded the tool call as successful because Archive.org returned a 200 HTML page explaining the block. Traces tell you how your agent ran, not whether its inputs were true. The pipeline now computes a SHA256 body hash on every snapshot to detect and discard identical block pages before storing them in attempt history.
+**What tracing can and cannot see:**
+- **What it caught:** Tool spans captured HTTP 429 rate limits from Archive.org during sequential exhumations and 402 quota-limit warnings when Browserbase concurrent session limits were hit.
+- **What it missed:** The block-page bug. Sentry recorded the tool call as successful because Archive.org returned an HTTP 200 status code on the HTML block page. Traces tell you how your agent ran, not whether its inputs were true. The pipeline now computes a SHA256 body hash on every snapshot to detect and discard identical block pages before storing them in attempt history.
 
 ---
 
@@ -247,29 +239,33 @@ What the traces showed:
 Two extraction methods tell different stories across different historical eras:
 
 ![Multi-Website Extraction Yield Bar Chart](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_multi_site.png)
-*Figure 13: Live multi-target character yield comparison chart across 15 dead services, contrasting Browserbase CDP (Marigold) against Plain HTTP (Charcoal).*
+*Figure 11: Multi-target character yield comparison chart across 15 dead services, contrasting Browserbase CDP (Marigold) against Plain HTTP (Charcoal).*
 
-When comparing plain HTTP requests against Browserbase headless Chromium across 15 dead services, a sharp architectural divergence emerged:
+To evaluate extraction performance across different eras of web technology, I conducted an offline, unpaired diagnostic benchmark (`benchmark.csv`) across 35 URLs (58 total attempts) comparing plain HTTP requests against Browserbase headless Chromium.
 
-| Defunct Service | Era | Browserbase Chars | HTTP Chars | Verdict / Architectural Cause |
+**Critical Forensic Disclosure:** Auditing the raw benchmark data revealed the exact problem described in my bug story: plain HTTP repeatedly received Wayback's 603-character rate-limit block page with an HTTP 200 status code. An unhardened scraper treated these 603 characters as authentic website text (e.g. for Yahoo Answers, del.icio.us, Google+, and Zune). In the table below, these are explicitly labeled as **Block page (603 chars)** rather than valid content.
+
+This benchmark is also a separate diagnostic dataset from the 15 resting cemetery graves: in the cemetery seed run, sequential calls hit severe Archive.org rate limits (49 of 68 attempts returned 429), leaving 11 graves with 0 characters recovered in the database.
+
+| Defunct Service | Era | Browserbase Chars | Plain HTTP Chars | Notes |
 |---|---|---:|---:|---|
-| **Adobe Flash Player** | 2018–2020 | **3,696 chars** (19.2s) | 0 chars (0.0s) | **Browserbase**: Requires DOM execution to parse product page |
-| **Yahoo Answers** | 2005–2007 | **3,220 chars** (17.1s) | 603 chars (17.7s) | **Browserbase (+433%)**: Dynamic QA forum content requires JS |
-| **GeoCities** | 2007–2009 | **1,721 chars** (13.3s) | 0 chars (0.0s) | **Browserbase**: 301 redirects to `geocities.yahoo.com` + Flash wrapper |
-| **Myspace** | 2005–2012 | **1,323 chars** (27.5s) | 0 chars (0.0s) | **Browserbase**: Client-side media players and script widgets |
-| **Grooveshark** | 2007–2015 | **1,118 chars** (19.3s) | 223 chars (30.4s) | **Browserbase (+401%)**: Streaming SPA UI fails on curl |
-| **Google Reader** | 2005–2013 | **852 chars** (18.8s) | 0 chars (0.0s) | **Browserbase**: Historical Google login interstitial |
-| **Digg** | 2005–2012 | 0 chars (13.0s) | **5,337 chars** (8.3s) | **Plain HTTP**: Static HTML portal exhumed instantly |
-| **AIM (AOL)** | pre-2005 | 0 chars (13.0s) | **1,623 chars** (19.7s) | **Plain HTTP**: Web 1.0 download table exhumed cleanly |
-| **Picnik** | 2005–2012 | 0 chars (0.0s) | **790 chars** (7.6s) | **Plain HTTP**: Static landing page before editor loads |
-| **del.icio.us** | 2003–2017 | 0 chars (0.0s) | **603 chars** (11.4s) | **Plain HTTP**: Lightweight social bookmark listing |
-| **Google+** | post-2012 | 0 chars (0.0s) | **603 chars** (4.0s) | **Plain HTTP**: Historical shutdown announcement |
-| **Microsoft Zune** | 2006–2015 | 0 chars (0.0s) | **603 chars** (7.6s) | **Plain HTTP**: Static hardware specification archive |
-| **ICQ** | pre-2005 | 0 chars (0.0s) | **580 chars** (8.7s) | **Plain HTTP**: Static directory listing |
-| **Tumblr** | post-2012 | 0 chars (0.0s) | **471 chars** (4.5s) | **Plain HTTP**: Minimal static redirect stub |
-| **Vine** | post-2012 | **234 chars** (19.4s) | 0 chars (0.0s) | **Browserbase**: Video grid placeholder |
+| **Adobe Flash Player** | 2018–2020 | **3,696 chars** (19.2s) | 0 chars (0.0s) | Dynamic JS portal |
+| **Yahoo Answers** | 2005–2007 | **3,220 chars** (17.1s) | *Block page (603 c)* | HTTP hit Wayback 429 block |
+| **GeoCities** | 2007–2009 | **1,721 chars** (13.3s) | 0 chars (0.0s) | Browserbase followed 301 redirect |
+| **Myspace** | 2005–2012 | **1,323 chars** (27.5s) | 0 chars (0.0s) | Dynamic media widgets |
+| **Grooveshark** | 2007–2015 | **1,118 chars** (19.3s) | 223 chars (30.4s) | SPA UI rendered by Browserbase |
+| **Google Reader** | 2005–2013 | **852 chars** (18.8s) | 0 chars (0.0s) | Rendered in Browserbase |
+| **Digg** | 2005–2012 | 0 chars (13.0s, quota) | **5,337 chars** (8.3s) | Static Web 2.0 HTML |
+| **AIM (AOL)** | pre-2005 | 0 chars (13.0s, quota) | **1,623 chars** (19.7s) | Static HTML table |
+| **Picnik** | 2005–2012 | 0 chars (0.0s) | **790 chars** (7.6s) | Static landing page |
+| **del.icio.us** | 2003–2017 | 0 chars (0.0s) | *Block page (603 c)* | HTTP hit Wayback 429 block |
+| **Google+** | post-2012 | 0 chars (0.0s) | *Block page (603 c)* | HTTP hit Wayback 429 block |
+| **Microsoft Zune** | 2006–2015 | 0 chars (0.0s) | *Block page (603 c)* | HTTP hit Wayback 429 block |
+| **ICQ** | pre-2005 | 0 chars (0.0s) | **580 chars** (8.7s) | Static directory listing |
+| **Tumblr** | post-2012 | 0 chars (0.0s) | 207 chars (7.6s)* | *Other attempts hit 603 c block |
+| **Vine** | post-2012 | **234 chars** (19.4s) | 0 chars (0.0s) | Headless Chromium hydration |
 
-What I take from this: Browserbase provided screenshots, replays, and **+56.9% more text on dynamic applications** (1,514 avg chars vs 965 chars), while plain HTTP was faster on early static pages (3.3s p50). Neither mattered as much as staying inside the Archive's rate limits.
+What I take from this: Browserbase provided screenshots, replays, and recovered more text on dynamic applications on average (1,514 vs 965 characters overall), while plain HTTP was faster on early static pages (3.3s p50). But neither mattered as much as staying inside the Archive's rate limits.
 
 ---
 
@@ -278,7 +274,7 @@ What I take from this: Browserbase provided screenshots, replays, and **+56.9% m
 Scrolling down to the Fact-Checking section shows how the model audits its own claims:
 
 ![Gemma Fact-Checker Hallucination Audit & Archival Correlation](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_fact_checker.png)
-*Figure 14: Fact-Checker hallucination reduction metrics (47.6% net drop) and the correlation showing 81.0% of ungrounded claims trace back to thin archival evidence (<600 chars).*
+*Figure 12: Fact-Checker hallucination reduction metrics (47.6% net drop) and the correlation showing 81.0% of ungrounded claims trace back to thin archival evidence (<600 chars).*
 
 Across the 57 atomic factual claims extracted from the 10 graves that had generated claims:
 
@@ -289,23 +285,12 @@ Across the 57 atomic factual claims extracted from the 10 graves that had genera
 | **Unsupported after rewrite** | 11 (19.3%) |
 | **Net Hallucination Reduction** | **47.6% reduction in ungrounded claims** |
 
-Breaking down the 21 initial unsupported claims reveals a key insight: **17 of the 21 unsupported claims (81.0%) originated from graves where recovered text was thin (<600 characters)** (Yahoo Answers had 6 unsupported claims, Vine had 5, and Google Reader had 2). When the archive yielded no text, Gemma drifted to memory to compose the eulogy; the fact-checker caught those ungrounded details and stripped them in the rewrite pass.
+Breaking down the 21 initial unsupported claims:
+- **13 of 21 claims (61.9%)** came directly from zero-evidence graves where the archive yielded no text: Yahoo Answers had 6 unsupported claims, Vine had 5, and Google Reader had 2. In the absence of evidence, Gemma drafted plausible tech details from memory; the fact-checker caught them and stripped them in the rewrite pass.
+- Adding Picnik's 4 unsupported claims (which had only 237 characters recovered, well below the 600-character thin threshold) brings the total to **17 of 21 claims (81.0%) originating from thin-evidence graves (<600 chars)**.
+- The remaining 4 unsupported claims (19.0%) occurred on rich-evidence graves (Grooveshark: 2, Pebble: 2) where the model introduced details not present in the recovered text slices.
 
 To check the checker, I hand-verified 25 of its verdicts against known tech history (`spot_check.csv`). I agreed with it on **19 of 25** (76.0% agreement). The fact-checker caught false acquisition dates and fabricated feature claims, but occasionally allowed flowery metaphors ("welcomed curious souls") that a strict human editor would flag. A model checking a model still benefits from human audit.
-
----
-
-### Case Study: GeoCities & The Archival Redirect Trap
-
-Scrolling further down into the case study section examines why certain sites fail on automated crawlers:
-
-![GeoCities 301 Redirect Forensic Breakdown](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_geocities_case_study.png)
-*Figure 15: The GeoCities forensic case study breaking down the Wayback 301 redirect and Flash container anomaly that triggers the yellow thin evidence guardrail badge.*
-
-Why did GeoCities trigger the yellow badge: `LIKELY CAUSE OF DEATH: UNKNOWN / ARCHIVAL EVIDENCE IS THIN (<600 CHARS RECOVERED)`?
-1. **The Wayback 301 Redirect Trap:** When querying `http://geocities.com/` on January 3, 2007, the Wayback Machine returned an HTTP 301 redirecting to `http://geocities.yahoo.com/`. Plain HTTP scrapers halt at the redirect wrapper, recovering 0 to 50 characters of boilerplate text.
-2. **Embedded Flash / Ruffle Containers:** The historical Yahoo GeoCities portal loaded its subscription tiers inside Flash objects (emulated today with Ruffle). Without Chromium JavaScript execution, curl sees empty `<div id="ruffle">` containers.
-3. **The Guardrail in Action:** Because recovered text fell below 600 characters, the cemetery stamped GeoCities with the yellow warning badge. Gemma verified 5 historical assertions and excised 0, refusing to hallucinate an ungrounded death narrative.
 
 ---
 
@@ -314,7 +299,7 @@ Why did GeoCities trigger the yellow badge: `LIKELY CAUSE OF DEATH: UNKNOWN / AR
 Continuing to the bottom of the evaluation report reveals the Cemetery Ground Truth Matrix:
 
 ![The Cemetery Ground Truth Matrix](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_ground_truth.png)
-*Figure 16: The Cemetery Ground Truth Matrix tracking exhumed text depth, coroner causes of death, and verified claim counts across all 15 resting graves.*
+*Figure 13: The Cemetery Ground Truth Matrix tracking exhumed text depth, coroner causes of death, and verified claim counts across all 15 resting graves.*
 
 I labeled all 15 graves myself before looking at the model's verdicts:
 
@@ -352,7 +337,7 @@ The reason for the 11 abstentions is straightforward: Archive.org rate limits (4
 - **Meaning of dates:** "Last archived capture" means the last good capture my pipeline could successfully exhume, not the literal hour the servers went dark.
 - **Residual errors:** 19.3% of claims (11 of 57) were still unsupported after the rewrite. The fact-checker reduces hallucinations, but does not eliminate them.
 - **Storage:** On Render's Free Web Service tier, disk storage is ephemeral: visitor-submitted graves disappear on redeploy; the 15 seed graves automatically restore from a bundled snapshot (`seed_bundle.zip`).
-- **Replay expiry:** Browserbase recordings expire after about a week on the free tier, so the screenshots and local database are what's preserved long-term.
+- **Replay expiry:** Browserbase recordings expire after about a week on the free tier, which is why permanent screen recording GIFs (such as Figure 5) and screenshots are archived in the repository.
 
 ---
 
@@ -372,7 +357,7 @@ I built this project pairing with Google Antigravity (Advanced Agentic AI pair p
 
 Three moments from the agent pairing session worth opening:
 
-1. **Uncovering the Bot-Block Hallucination Trap:** Early in development, our test run generated a bizarre eulogy for Google Reader about "automated sentinels guarding blocked requests." While tests passed and Sentry spans were green, the agent inspected the raw SQLite database row and caught the root cause: Archive.org's 603-character rate-limit HTML page had slipped through as authentic content. We immediately threw out our first benchmark numbers and implemented the 4-layer defense.
+1. **Uncovering the Bot-Block Hallucination Trap:** Early in development, our test run generated a bizarre eulogy for Google Reader about "automated sentinels guarding blocked requests." While tests passed and HTTP statuses were green, the agent inspected the raw SQLite database row and caught the root cause: Archive.org's 603-character rate-limit HTML page had slipped through as authentic content. We immediately recognized our first benchmark was suspect and implemented the 4-layer defense.
 2. **Refusing to Falsify the Seed Graves:** When our audit script (`scripts/proof_pack.py`) inspected all 68 fetch attempts across the 15 cemetery graves, it revealed that 49 attempts had hit Archive.org 429 rate limits, leaving 11 graves with 0 recovered characters. Rather than smoothing over the numbers or claiming 100% extraction success, the agent insisted on reporting the 11 abstentions with full forensic honesty.
 3. **Engineering the Stepper & Replay Demonstrations:** To prove end-to-end functionality without loading heavy dependencies, the agent converted our Browserbase CDP session recording into an optimized animated GIF (`live_screen_recording.gif`) and generated a retro terminal stepper (`live_dig_stepper.gif`) illustrating the five specialists in action.
 
@@ -385,7 +370,7 @@ Three moments from the agent pairing session worth opening:
 - **Ghost in the Machine (Overall):** An end-to-end autonomous exhumation pipeline digging up dead software with real measured trade-offs, forensic honesty, and failure modes.
 - **Gemma:** Every verdict, epitaph, eulogy, and fact-check comes from `gemma-4-26b-a4b-it`. Every grave credits the model by name.
 - **Render:** Deployed from `render.yaml`, with an automated `/health` check and automatic restoration of the seed graves on fresh deploys.
-- **Browserbase:** Cloud-browser exhumation of archived pages with screenshots and session replays (Session `d4521703-fcd3-4218-bf0b-fa558e9a89bb`), a measured comparison against plain HTTP, and a live `/benchmark` page.
+- **Browserbase:** Cloud-browser exhumation of archived pages with screenshots and session replays (Session `d4521703-fcd3-4218-bf0b-fa558e9a89bb`, with free tier recordings archived via permanent GIFs), a measured comparison against plain HTTP, and a live `/benchmark` page.
 - **Sentry:** GenAI agent tracing across every stage (`gen_ai.invoke_agent` → `gen_ai.chat` → `gen_ai.execute_tool`), with tokens, latency, and failures, plus an honest account of what tracing could and couldn't catch.
 
 ---
