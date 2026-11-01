@@ -76,8 +76,19 @@ The project includes `render.yaml` for 1-click deployment on Render.
 
 ---
 
+## Agent Session & Forensic Audit Log
+
+This project was built pairing with **Google Antigravity** (Advanced Agentic AI Pair Programming) for the Hacktoberfest Open-Source AI Challenge: *Ghost in the Machine*.
+
+- **Agent Session & Forensic Audit Dossier:** [`AUDIT_LOG.md`](AUDIT_LOG.md) *(mirrored at [`AGENT_SESSION.md`](AGENT_SESSION.md))*
+- **Forensic Verification Script:** `python scripts/proof_pack.py` (reproduces all database metrics, 15-grave ground truth, error counts, and fact-checker statistics)
+- **Unit Test Suite (20 tests):** `python -m unittest discover tests -v`
+
+---
+
 ## Scripts
 
+- `python scripts/proof_pack.py`: Reproducible audit script verifying the 15-grave ground truth matrix, crawl attempt distributions, and fact-checker audit math.
 - `python seed_redig.py`: Idempotent and resumable re-digging of seed graves through the live exhumation pipeline. Pass `--force` to re-dig all graves.
 - `python seed_bundle.py`: Creates a distributable ZIP bundle (`seed_bundle/seed_bundle.zip`) containing the database and screenshots.
 - `python benchmark.py`: Runs Eval A benchmark (HTTP vs Browserbase) on 35 historical sites.

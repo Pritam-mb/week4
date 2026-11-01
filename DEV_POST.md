@@ -355,6 +355,9 @@ A memorial whose voice can be switched off by a third party isn't really a memor
 
 I built this project pairing with Google Antigravity (Advanced Agentic AI pair programming) under strict operating rules: never fabricate a metric or claim, preserve documentation integrity, verify all assertions against raw database rows, and write reproducible audit tools.
 
+The complete pairing session history, operational charter, and verification audit trail are published in the repository:
+👉 **[Antigravity Agent Session & Forensic Audit Dossier (AUDIT_LOG.md)](https://github.com/Pritam-mb/week4/blob/main/AUDIT_LOG.md)** *(mirrored at [AGENT_SESSION.md](https://github.com/Pritam-mb/week4/blob/main/AGENT_SESSION.md))*. Every metric can be recomputed with `python scripts/proof_pack.py`.
+
 Three moments from the agent pairing session worth opening:
 
 1. **Uncovering the Bot-Block Hallucination Trap:** Early in development, our test run generated a bizarre eulogy for Google Reader about "automated sentinels guarding blocked requests." While tests passed and HTTP statuses were green, the agent inspected the raw SQLite database row and caught the root cause: Archive.org's 603-character rate-limit HTML page had slipped through as authentic content. We immediately recognized our first benchmark was suspect and implemented the 4-layer defense.
