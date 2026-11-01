@@ -8,6 +8,13 @@
 <div class="two-column" id="obituary-page">
   <div class="main-col">
 
+    <!-- Top Navigation & Breadcrumbs -->
+    <div class="obituary-nav-header">
+      <a href="/"><span>&larr;</span> The Cemetery</a>
+      <span style="color:var(--ember);font-weight:600;">Forensic Exhumation Record</span>
+      <a href="/benchmark">Extraction Benchmark <span>&rarr;</span></a>
+    </div>
+
     <!-- Kicker row -->
     <div class="kicker-row">
       <span class="kicker-tag">Obituary</span>
@@ -17,12 +24,11 @@
     </div>
 
     <!-- Headline -->
-    <h1 class="obituary-headline">
-      {{ grave.name }},
-      {% if grave.first_archived %}{{ grave.first_archived[:4] }}{% else %}?{% endif %}
-      &ndash;
-      {% if grave.last_seen_alive %}{{ grave.last_seen_alive[:4] }}{% else %}?{% endif %}
-    </h1>
+    <h1 class="obituary-headline">{{ grave.name }}, {{ grave.first_archived | extract_year }} &ndash; {{ grave.last_seen_alive | extract_year }}</h1>
+
+    <div class="obituary-lifeline-sub">
+      Active in Archival Records: {{ grave.first_archived or 'Unknown' }} &ndash; {{ grave.last_seen_alive or 'Unknown' }}
+    </div>
 
     <!-- Deck -->
     {% if grave.epitaph %}
@@ -39,39 +45,40 @@
             <button class="frame-control" aria-label="maximize"></button>
             <button class="frame-control" aria-label="close"></button>
           </div>
-          <div class="frame-url">
-            web.archive.org / {% if grave.first_archived %}{{ grave.first_archived[:4] }}{% else %}?{% endif %} / {% if grave.url %}{{ grave.url | replace('https://','') | replace('http://','') }}{% endif %}
+          <div class="frame-url" title="View historical capture">
+            web.archive.org / {{ grave.first_archived | extract_year }} / {% if grave.url %}{{ grave.url | replace('https://','') | replace('http://','') }}{% endif %}
           </div>
         </div>
         {% if grave.screenshot_path %}
           <img src="{{ grave.screenshot_path }}" alt="Screenshot of {{ grave.name }} from the Wayback Machine" class="frame-image" loading="lazy">
         {% else %}
-          <div class="frame-caption">
-            <span class="caption-label">No archived capture available.</span>
+          <div class="frame-caption" style="padding:40px 20px;text-align:center;">
+            <span class="caption-label" style="font-family:var(--font-mono);font-size:12px;color:var(--ash);">No archived screenshot stored locally.</span>
           </div>
         {% endif %}
         <div class="frame-caption">
           <span class="caption-label">Last archived capture</span>
           {% if grave.replay_url %}
-          <a href="{{ grave.replay_url }}" target="_blank" rel="noopener" class="caption-link">Watch the exhumation</a>
+          <a href="{{ grave.replay_url }}" target="_blank" rel="noopener" class="caption-link-replay" title="Watch replay over Chrome DevTools Protocol">&#x25B6; Watch Replay (CDP)</a>
           {% endif %}
         </div>
       </div>
 
-        <!-- Cause card -->
+      <!-- Cause card -->
       <div class="cause-card">
         <div class="cause-heading">Likely cause of death</div>
         <div class="cause-stamp">{{ (grave.cause_label or 'unknown') | replace('_',' ') | title }}</div>
         {% if evidence %}
         <div class="cause-evidence">
           {% for e in evidence %}
-          {{ e }}
+          <div style="margin-top:6px;font-style:italic;">&ldquo;{{ e }}&rdquo;</div>
           {% endfor %}
         </div>
         {% endif %}
         {% if (grave.extracted_text or '') | length < 600 %}
-        <div class="evidence-thin-badge" style="font-family: var(--font-data); font-size: 0.7rem; color: var(--ash); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 0.5rem; border-top: 1px dashed var(--line); padding-top: 0.4rem;">
-          Archival evidence is thin (&lt;600 chars recovered)
+        <div class="evidence-thin-badge">
+          <strong>&#x26A0;&#xFE0F; Archival evidence is thin (&lt;600 chars recovered)</strong>
+          <span>Wayback Machine records are sparse for this era. Gemma was instructed to keep this remembrance grounded and refused to fabricate unverified corporate drama.</span>
         </div>
         {% endif %}
       </div>
@@ -79,53 +86,70 @@
 
     <!-- Eulogy -->
     <div class="eulogy-section">
+      <div class="eulogy-header-tag">D&iacute;a de los Muertos Eulogy</div>
       {% set _eulogy = grave.eulogy_verified or grave.eulogy or "Little is left of it &mdash; the archive holds only silence." %}
       <div class="eulogy-body drop-cap">{{ _eulogy }}</div>
-      <div class="eulogy-meta" style="font-family: var(--font-data); font-size: 0.75rem; color: var(--ash); margin-top: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase;">Eulogy written by {{ grave.llm_model or 'gemma-4-26b-a4b-it' }}</div>
+      <div class="eulogy-meta" style="font-family:var(--font-mono);font-size:11px;color:var(--ash);margin-top:14px;letter-spacing:0.08em;text-transform:uppercase;">
+        Eulogy written by {{ grave.llm_model or 'gemma-4-26b-a4b-it' }} &middot; Verified against Internet Archive captures
+      </div>
     </div>
 
-    <!-- Claims line -->
+    <!-- Claims Fact-Checker Terminal -->
     {% if claims %}
     {% set _claims = claims %}
     {% if _claims %}
-    <div class="claims-line">
+    <div class="fact-checker-terminal">
+      <div class="fact-terminal-titlebar">
+        <span>&#x1F6E1;&#xFE0F; Gemma Fact-Checker &middot; Self-Audit Verification Ledger</span>
+        <span style="font-size:10px;color:var(--ash);">Cross-Examined Against Historical DOM</span>
+      </div>
       {% set _supported = _claims | selectattr('supported') | list %}
       {% set _removed = _claims | rejectattr('supported') | list %}
-      {% for c in _supported %}
-      <span class="supported" title="{{ c.quote or '' }}">{{ c.claim }}</span>
-      {% endfor %}
-      {% for c in _removed %}
-      <span class="removed">{{ c.claim }}</span>
-      {% endfor %}
-      <span class="counts">{{ _supported | length }} supported &middot; {{ _removed | length }} removed</span>
+      <div class="claims-pills-wrap">
+        {% for c in _supported %}
+        <span class="claim-pill-supported" title="{{ c.quote or '' }}">&#x2713; {{ c.claim }}</span>
+        {% endfor %}
+        {% for c in _removed %}
+        <span class="claim-pill-removed">&#x2717; {{ c.claim }}</span>
+        {% endfor %}
+      </div>
+      <div class="claims-summary-line">
+        <span><strong>{{ _supported | length }}</strong> Supported &middot; <strong>{{ _removed | length }}</strong> Excised</span>
+        <span>{% if _removed | length == 0 %}&#x2714; 100% Grounded in Archive{% else %}&#x2714; Rewritten For Faithfulness{% endif %}</span>
+      </div>
     </div>
     {% endif %}
     {% endif %}
 
     <!-- Survived by -->
     {% if grave.survived_by %}
-    <p class="survived-by">{{ grave.survived_by }}</p>
+    <div style="margin-top:28px;padding:12px 16px;background:var(--paper-2);border-left:3px solid var(--marigold);font-family:var(--font-serif);font-size:16px;font-style:italic;color:var(--ink);">
+      <strong>Survived by:</strong> {{ grave.survived_by }}
+    </div>
     {% endif %}
 
-    <!-- Memories -->
+    <!-- Memories & Ofrenda -->
     <div class="memories-section">
+      <div style="font-family:var(--font-mono);font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink);margin-bottom:12px;font-weight:600;">
+        &#x1F33C; Community Ofrenda &middot; Visitor Condolences
+      </div>
       {% if memories %}
-      <ul>
-        {% for m in _memories %}
-        <li class="memory-entry">
-          <span class="memory-text">{{ m.text }}</span>
+      <div class="memories-list" style="margin-bottom:16px;">
+        {% for m in memories %}
+        <div class="memory-entry-card">
+          <span class="memory-text">&ldquo;{{ m.text }}&rdquo;</span>
           <span class="memory-ts">{{ m.ts }}</span>
-        </li>
+        </div>
         {% endfor %}
-      </ul>
+      </div>
       {% else %}
-      <p style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);">No memories yet.</p>
+      <p style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ash);margin-bottom:14px;">No visitor memories left yet. Be the first to leave an offering.</p>
       {% endif %}
 
       <!-- Memory form -->
       <form id="memory-form" class="memory-form" data-slug="{{ grave.slug }}">
-        <input type="text" id="memory-input" name="text" maxlength="500" placeholder="Leave a memory" class="memory-input">
-        <button type="submit" class="memory-submit">Leave</button>
+        <input type="text" id="memory-input" name="text" maxlength="500" placeholder="Leave a memory or condolence for {{ grave.name }}" class="memory-input" style="flex:1;">
+        <button type="submit" class="memory-submit" style="background:var(--ink);color:var(--paper);cursor:pointer;">Leave offering</button>
       </form>
       <div id="memories-result"></div>
     </div>

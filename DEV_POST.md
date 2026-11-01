@@ -55,20 +55,25 @@ So I built a cemetery.
 - **Verified Browserbase Replay Session:** Session ID `d4521703-fcd3-4218-bf0b-fa558e9a89bb` *(Exhuming Picnik from `web.archive.org` over CDP, 32s in `us-west-2`)*
 - **Code:** [https://github.com/Pritam-mb/week4](https://github.com/Pritam-mb/week4)
 
-### Anatomy of a Memorial Page
+### Anatomy of a Memorial Page: An Interactive Digital Shrine
 
-Every dead project exhumed by the pipeline receives a permanent memorial page:
+Every dead project exhumed by the pipeline receives a permanent, living memorial page—designed not like a cold database row, but as a night-edition broadsheet obituary and a traditional *Día de los Muertos* altar (*ofrenda*). 
 
-![The Memorial Page](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/yis7bg5hoxsn2g0mk33n.png)
+![Google Reader's memorial grave](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/google_reader_grave_enhanced.png)
 *Figure 2: A memorial page showing the capture lifeline, primary archive sources, likely cause of death, verified claims, and community marigold counter.*
 
-The memorial screen surfaces:
-- **Lifeline Sparkline (Top Right):** An inline SVG chart generated from Wayback's CDX API capture counts per year, showing the domain's historical activity and when it went flatline.
-- **Primary Sources (Sidebar):** Direct outbound links to the **First Capture** in Archive.org, the **Last Archived Capture**, and the **Session Replay** recording in Browserbase.
-- **Likely Cause of Death & Evidence Warning:** Displays the coroner's verdict (`shut_down_by_owner`, `acquired_then_shut_down`, `abandoned`, or `unknown`). When Wayback returns minimal text, an **"Archival evidence is thin (<600 chars recovered)"** indicator warns visitors that the archive was sparse.
-- **The Eulogy:** A 150–220 word commemorative remembrance written by Google's open-weights `gemma-4-26b-a4b-it` in the celebratory warmth of *Día de los Muertos*.
-- **Fact-Checker Audit (Green Badges):** The Fact-Checker extracts atomic claims from the eulogy and checks them against recovered evidence, displaying which claims are supported and how many were removed or softened.
-- **Community Ofrenda:** An interactive marigold offering counter (*"Leave a Marigold"*) where visitors honor dead tools, paired with a memory submission board.
+Walk through any grave—such as [Google Reader](https://graveyard-dead-software.onrender.com/grave/google-reader), [GeoCities](https://graveyard-dead-software.onrender.com/grave/geocities), or [Grooveshark](https://graveyard-dead-software.onrender.com/grave/grooveshark)—and you will find eight distinct forensic and memorial elements:
+
+1. **The Papel Picado & Night Masthead:** Hand-cut festive banners across the top frame the project's digital lifespan: the month it was first captured, its peak activity years, and the final date it went dark.
+2. **The Historical Browser Viewport & Session Replay:** The deceased website frozen in time inside a vintage browser frame. Clicking **"Watch the Exhumation"** opens the verified Browserbase CDP cloud replay session, allowing you to watch the headless browser exhume and render the historical DOM live over Chrome DevTools Protocol.
+3. **The Archival Lifeline (Top Right Histogram):** An inline SVG bar chart calculated from CDX monthly captures across the project's entire history. You can visually trace its birth, adoption explosion, peak, and the exact year it went flatline.
+4. **The Forensic Cause-of-Death Stamp:** The coroner's diagnosis (`shut_down_by_owner`, `acquired_then_shut_down`, `abandoned`, or `unknown`). Crucially, when archival evidence is sparse, the grave prominently displays the yellow badge: **`ARCHIVAL EVIDENCE IS THIN (<600 CHARS RECOVERED)`**, guaranteeing forensic transparency.
+5. **The Gemma Día de los Muertos Eulogy:** Rather than cynical tech snark ("RIP lol"), Google's open-weights `gemma-4-26b-a4b-it` crafts a poetic celebration of what was built and the late-night human commits behind it. In rich-evidence graves, factual assertions cite numbered evidence markers (`[E001]`).
+6. **The Fact-Checker Verification Ledger:** Stamped right beneath the eulogy in green typewriter monospace: a transparent audit ledger showing which claims passed evidence cross-examination and how many were removed before burial (e.g. `5 SUPPORTED · 0 REMOVED`).
+7. **Survived By:** Naming the modern open-source networks, RSS feed readers, or spiritual successors that carry forward the lost tool's core philosophy.
+8. **The Community Ofrenda (Marigolds & Memories):** An interactive memorial altar. Visitors click **"🌼 Leave a Marigold"** to add a glowing golden cempasúchil blossom to the grave's permanent counter, and write heartfelt notes to the community memory board.
+
+*Explore the resting rows directly: [Google Reader](https://graveyard-dead-software.onrender.com/grave/google-reader) &middot; [GeoCities](https://graveyard-dead-software.onrender.com/grave/geocities) &middot; [Grooveshark](https://graveyard-dead-software.onrender.com/grave/grooveshark) &middot; [Adobe Flash Player](https://graveyard-dead-software.onrender.com/grave/flash) &middot; [Vine](https://graveyard-dead-software.onrender.com/grave/vine) &middot; [del.icio.us](https://graveyard-dead-software.onrender.com/grave/del-icio-us).*
 
 ---
 

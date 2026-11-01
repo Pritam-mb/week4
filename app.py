@@ -55,6 +55,16 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.filters["fromjson"] = lambda s: json.loads(s) if (isinstance(s, str) and s.strip().startswith(("[", "{"))) else (s or [])
 
+def extract_year(date_str):
+    if not date_str:
+        return "?"
+    m = re.search(r'\b(19\d\d|20\d\d)\b', str(date_str))
+    if m:
+        return m.group(1)
+    return str(date_str)[:4]
+
+templates.env.filters["extract_year"] = extract_year
+
 SCREENSHOTS_DIR = BASE_DIR / "static" / "screenshots"
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 

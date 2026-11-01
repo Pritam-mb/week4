@@ -23,12 +23,7 @@
     </div>
 
     <!-- Headline -->
-    <h1 class="obituary-headline">
-      {{ lead.name }},
-      {% if lead.first_archived %}{{ lead.first_archived[:4] }}{% else %}?{% endif %}
-      &ndash;
-      {% if lead.last_seen_alive %}{{ lead.last_seen_alive[:4] }}{% else %}?{% endif %}
-    </h1>
+    <h1 class="obituary-headline">{{ lead.name }}, {{ lead.first_archived | extract_year }} &ndash; {{ lead.last_seen_alive | extract_year }}</h1>
 
     <!-- Deck -->
     {% if lead.epitaph %}
@@ -46,7 +41,7 @@
             <button class="frame-control" aria-label="close"></button>
           </div>
           <div class="frame-url">
-            web.archive.org / {% if lead.first_archived %}{{ lead.first_archived[:4] }}{% else %}?{% endif %} / {% if lead.url %}{{ lead.url | replace('https://','') | replace('http://','') }}{% endif %}
+            web.archive.org / {{ lead.first_archived | extract_year }} / {% if lead.url %}{{ lead.url | replace('https://','') | replace('http://','') }}{% endif %}
           </div>
         </div>
         {% if lead.screenshot_path %}
@@ -144,7 +139,7 @@
       <a href="/grave/{{ g.slug }}" class="recently-row">
         <div class="recently-info">
           <span class="recently-name">{{ g.name }}</span>
-          <span class="recently-meta">{% if g.first_archived and g.last_seen_alive %}{{ g.first_archived[:4] }} &ndash; {{ g.last_seen_alive[:4] }} / {{ (g.cause_label or 'unknown') | replace('_',' ') }}{% endif %}</span>
+          <span class="recently-meta">{% if g.first_archived and g.last_seen_alive %}{{ g.first_archived | extract_year }} &ndash; {{ g.last_seen_alive | extract_year }} / {{ (g.cause_label or 'unknown') | replace('_',' ') }}{% endif %}</span>
         </div>
         <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1.5 2 3 3 5 3-1 2-2.5 3-4 4 1 1.5 1.5 3 1 5-2-1-3.5-2.5-5-4-1.5 1.5-3 3-5 4 0-2 .5-3.5 1.5-5-1.5-1-3-2-4-4 2 0 3.5-1 5-3z" fill="var(--ember)"/></svg>
         <span class="recently-count">{{ g.marigolds }}</span>

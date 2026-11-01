@@ -1156,3 +1156,184 @@ ul, ol{margin:0 0 1rem 1.5rem;}
   font-weight: 600;
   margin-bottom: 12px;
 }
+
+/* ---------- Grave Page Memorial Enhancements ---------- */
+.obituary-nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--ash);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.obituary-nav-header a {
+  color: var(--ash);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s ease;
+}
+.obituary-nav-header a:hover {
+  color: var(--ember);
+}
+
+.obituary-lifeline-sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ash);
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+/* Enhanced Viewport Frame */
+.frame-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--paper-2);
+  border-top: 1px solid var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.caption-link-replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--marigold);
+  color: var(--ink);
+  padding: 4px 10px;
+  font-weight: 600;
+  border: 1px solid var(--ink);
+  text-decoration: none;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+.caption-link-replay:hover {
+  background: var(--ember);
+  color: #fff;
+}
+
+/* Enhanced Cause Card */
+.evidence-thin-badge {
+  background: #FFF9E6;
+  border: 1px solid var(--marigold);
+  color: #7A5200;
+  padding: 10px 12px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+}
+.evidence-thin-badge strong {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  color: var(--crimson);
+}
+
+/* Fact-Checker Terminal Card */
+.fact-checker-terminal {
+  margin-top: 28px;
+  border: 2px solid var(--ink);
+  background: var(--paper-2);
+  padding: 18px 20px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.fact-terminal-titlebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink);
+}
+.claims-pills-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.claim-pill-supported {
+  background: var(--sage-tint);
+  border: 1px solid var(--sage);
+  color: var(--ink);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+}
+.claim-pill-removed {
+  background: #FCE8E6;
+  border: 1px solid var(--crimson);
+  color: var(--crimson);
+  text-decoration: line-through 2px solid var(--crimson);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+}
+.claims-summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed var(--ash);
+  padding-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+/* Eulogy Enhancements */
+.eulogy-header-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ember);
+  margin-bottom: 8px;
+}
+
+/* Memories & Guestbook */
+.memory-entry-card {
+  background: var(--paper-2);
+  border: 1px solid var(--ink);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.memory-entry-card .memory-text {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--ink);
+  font-style: italic;
+}
+.memory-entry-card .memory-ts {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ash);
+  white-space: nowrap;
+}
