@@ -2,7 +2,7 @@
 title: "I Built a Cemetery for Dead Software, and Taught Its AI to Say \"I Don't Know\""
 published: false
 description: "A digital cemetery that exhumes lost websites from the Wayback Machine, classifies cause of death, writes Día de los Muertos eulogies with Gemma, and audits its own claims before burial."
-tags: hacktoberfest, gemma, render, browserbase, sentry
+tags: hacktoberfest, gemma, browserbase, sentry
 cover_image: https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/lwhw0hkbgfe3gr85fi1t.png
 ---
 
@@ -43,8 +43,8 @@ So I built a cemetery.
 
 Try it yourself: type a dead project into the **"Know a project that died?"** box on the home page and watch the five stages tick by:
 
-![Live Exhumation Stepper](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_dig_stepper.gif)
-*Figure 3: Live five-stage exhumation terminal stepping through Archaeologist, Exhumer, Coroner, Eulogist, and Fact-Checker.*
+![Exhumation Stepper Animation](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_dig_stepper.gif)
+*Figure 3: Conceptual terminal animation illustrating the five-stage pipeline progression.*
 
 ```text
 DIGGING
@@ -84,10 +84,10 @@ For each snapshot, the Exhumer opens a **Browserbase** cloud browser over Chrome
 If Browserbase hits a session cap or times out, it falls back to fetching the raw archived HTML (Wayback's `id_/` mode). Every attempt is logged with its method, status, size, and timing, and every recovered page becomes numbered evidence: `E001`, `E002`, and so on. Later stages are only allowed to use facts from that evidence.
 
 ![Browserbase Session Replay Inspector](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_session_replay.png)
-*Figure 3: Browserbase session inspector showing session `d4521703-fcd3-4218-bf0b-fa558e9a89bb` rendering historical Archive.org pages over CDP.*
+*Figure 4: Browserbase session inspector showing session `d4521703-fcd3-4218-bf0b-fa558e9a89bb` rendering historical Archive.org pages over CDP.*
 
 ![Browserbase Sessions Log](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_sessions_list.png)
-*Figure 4: Browserbase completed sessions log tracking historical exhumations.*
+*Figure 5: Browserbase completed sessions log tracking historical exhumations.*
 
 ### 3. The Coroner rules on the cause of death
 Was it shut down by its owner, bought and then killed, abandoned, or taken over?
@@ -102,10 +102,10 @@ Gemma writes a 12-word epitaph and a 150–220-word eulogy, and every factual se
 When less than 600 characters were recovered, the grave shows **"Archival evidence is thin (<600 chars recovered)"**, and Gemma is told to write a short, honest remembrance instead of filling the gaps from memory.
 
 ![Thin evidence notice on Flash Player's grave](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/flash_player_grave_ui.png)
-*Figure 5: Flash Player's grave. The archive returned minimal text, and the eulogy honestly says so.*
+*Figure 6: Flash Player's grave. The archive returned minimal text, and the eulogy honestly says so.*
 
 ![Grooveshark grave with rich evidence](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/grooveshark_grave_ui.png)
-*Figure 6: A grave with rich evidence (Grooveshark): note the evidence list, the [E001] citations in the eulogy, and the verified claim badges.*
+*Figure 7: A grave with rich evidence (Grooveshark): note the evidence list, the [E001] citations in the eulogy, and the verified claim badges.*
 
 ### 5. The Fact-checker audits the eulogy
 Language models love inventing acquisition dates and corporate drama. So the last stage breaks the eulogy into individual claims, checks each against the evidence, and, if any is unsupported, makes Gemma rewrite it once to remove or soften those claims. The grave page shows every claim marked OK or FAIL.
@@ -156,43 +156,38 @@ I didn't try to get around the block. The Internet Archive is a free public libr
 Each burial is one `gen_ai.invoke_agent` trace with the grave slug as its conversation ID. Every Gemma call is a `gen_ai.chat` span with token counts, and every CDX query, Browserbase session, and HTTP fetch is a `gen_ai.execute_tool` span.
 
 ![Sentry Distributed Trace Waterfall](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/gn9swknh7gpcs3igzqfm.png)
-*Figure 7: Sentry distributed trace waterfall showing gen_ai.invoke_agent branching into chat and tool spans.*
+*Figure 8: Sentry distributed trace waterfall showing gen_ai.invoke_agent branching into chat and tool spans.*
 
 ![Sentry Performance Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/i4hm0nnq9gavsbfg8c5y.png)
-*Figure 8: Sentry transactions dashboard showing agent execution latencies and throughput.*
+*Figure 9: Sentry transactions dashboard showing agent execution latencies and throughput.*
 
 What the traces showed:
 - **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries take ~2 to 3 seconds.
 - **What fails:** Tool spans captured HTTP 429 rate limits from Archive.org during sequential exhumations and 402 quota-limit warnings when Browserbase concurrent session limits were hit.
-- **What tracing can't see:** The block-page bug. Sentry recorded the tool call as successful because Archive.org returned a 200 HTML page explaining the block. Traces tell you how your agent ran, not whether its inputs were true. I now log a content fingerprint (`sha256` hash) on each exhume span for that reason.
+- **What tracing can't see:** The block-page bug. Sentry recorded the tool call as successful because Archive.org returned a 200 HTML page explaining the block. Traces tell you how your agent ran, not whether its inputs were true. The pipeline now computes a SHA256 body hash on every snapshot to detect and discard identical block pages before storing them in attempt history.
 
 ---
 
 ## What I Measured
 
 ### Browserbase vs Plain HTTP
-*"Usable"* means a 200 response that isn't a block page and isn't a duplicate body. (A usable page can still contain very little text).
 
-Across 58 historical snapshot attempts (unpaired):
+Two runs tell different stories.
 
-| Path | Attempts | Usable % | Avg text | p50 latency | p95 latency | Failures / Limitations |
-|---|---:|---:|---:|---:|---:|---|
-| **Plain HTTP (`id_/`)** | 31 | 100.0% | 965 chars | 3.3s | 33.8s | 0 (Wayback 429s mitigated by pacing) |
-| **Browserbase (CDP)** | 27 | 81.5% | 1,514 chars | 15.1s | 29.9s | 5 (3 HTTP 402 minutes limits, 2 empty/block) |
+**Benchmark run (35 URLs, unpaired, spaced out):** Plain HTTP returned usable pages for 31 of 31 attempts (avg 965 chars, p50 3.3s, p95 33.8s). Browserbase returned usable pages for 22 of 27 (81.5%, avg 1,514 chars, p50 15.1s, p95 29.9s); 3 failures were free-plan limits (HTTP 402) and 2 were empty/block timeouts. In this run "usable" means a 200 response that isn't a block page, so it can still be tiny: the shortest Grooveshark capture was 77 characters.
+
+**Seed run (the 15 graves):** Only about 4 of 68 fetch attempts returned usable text. Browserbase minutes ran out early, so almost every attempt went through plain HTTP. When checking the attempt history directly from SQLite (`exhume_attempts`), 49 of the 68 attempts failed with HTTP 429 (`blocked_by_archive_rate_limit`), 12 timed out before response headers arrived, and 7 returned HTTP 200. Testing with `curl -I` from the host confirmed the Archive is active and serving 200s, but sequential automated requests quickly triggered the Wayback Machine's rate limit.
+
+What I take from this: Browserbase gave me screenshots, replays and more text per page when it worked, and plain HTTP was faster. Neither mattered as much as staying inside the Archive's rate limits and my free-plan quota.
 
 ![Live Benchmark Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/vsuvek0u7uip2l0js9wy.png)
-*Figure 9: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
-
-From the benchmark data:
-- **Plain HTTP won on speed:** For early-web static pages (AltaVista, early GeoCities), raw HTML fetching finished in 3.3 seconds without browser startup overhead.
-- **Browserbase won on text depth:** By executing JavaScript on dynamic mid-2000s applications like Grooveshark, Browserbase recovered **57% more text** overall (1,514 chars vs 965 chars). On Grooveshark specifically, plain HTTP only recovered 77 and 370 characters, whereas Browserbase extracted 496 and 1,740 characters.
-- **Trade-off:** Browserbase's free tier has monthly session limits, which caused 3 HTTP 402 quota-limit failures and 2 empty timeouts during burst crawls. However, Browserbase provided full-page visual screenshots and video replays that plain HTTP cannot provide.
+*Figure 10: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
 
 ---
 
 ### Did the Fact-Checker Help?
 
-Across the 57 atomic factual claims extracted from initial Gemma eulogies:
+Across the 57 atomic factual claims extracted from the 10 graves that had generated claims:
 
 | Metric | Value |
 |---|---:|
@@ -200,6 +195,8 @@ Across the 57 atomic factual claims extracted from initial Gemma eulogies:
 | **Unsupported before rewrite** | 21 (36.8%) |
 | **Unsupported after rewrite** | 11 (19.3%) |
 | **Net Hallucination Reduction** | **47.6% reduction in ungrounded claims** |
+
+Breaking down the 21 initial unsupported claims reveals an important insight: **13 of the 21 unsupported claims came from graves where 0 or near-0 characters of evidence were recovered** (Yahoo Answers had 6 unsupported claims, Vine had 5, and Google Reader had 2). When the archive yielded no text, Gemma drifted to memory to compose the eulogy; the fact-checker caught those ungrounded details and stripped them in the rewrite pass.
 
 To check the checker, I hand-verified 25 of its verdicts against known tech history (`spot_check.csv`). I agreed with it on **19 of 25** (76.0% agreement). The fact-checker caught false acquisition dates and fabricated feature claims, but occasionally allowed flowery metaphors ("welcomed curious souls") that a strict human editor would flag. A model checking a model still benefits from human audit.
 
@@ -229,7 +226,7 @@ I labeled all 15 graves myself before looking at the model's verdicts:
 
 The model answered 4 times and was right 4 times. It abstained 11 times and was never confidently wrong.
 
-I don't want to oversell that: the abstentions happened because my fetcher got zero usable characters for those 11 snapshots. Looking at the attempt logs, the root causes were Archive.org rate limits (HTTP 429s returned under sequential load) and Browserbase session concurrency limits. The bottleneck in AI archaeology isn't the model's reasoning—it's access to the archive. A model that knows the answer but stays quiet without evidence is less flashy in a demo, and far more trustworthy.
+The reason for the 11 abstentions is straightforward from the diagnosis above: Archive.org rate limits (49 HTTP 429 responses and 12 timeouts across the 68 attempts) prevented recovering text. The bottleneck in AI archaeology isn't the model's reasoning—it's access to the archive. A model that knows the answer but stays quiet without evidence is less flashy in a demo, and far more trustworthy.
 
 *(Grooveshark shut down as part of a copyright settlement. I filed that under `shut_down_by_owner`, which is a judgment call).*
 
@@ -239,7 +236,7 @@ I don't want to oversell that: the abstentions happened because my fetcher got z
 
 - **Thin graves:** 11 of 15 graves have little or no recovered text, so their eulogies are short and honest about it. Re-digging them with slower pacing is the next step.
 - **Meaning of dates:** "Last archived capture" means the last good capture my pipeline could successfully exhume, not the literal hour the servers went dark.
-- **Residual errors:** 20.0% of claims (11 of 55) were still unsupported after the rewrite. The fact-checker reduces hallucinations, but does not eliminate them.
+- **Residual errors:** 19.3% of claims (11 of 57) were still unsupported after the rewrite. The fact-checker reduces hallucinations, but does not eliminate them.
 - **Storage:** On Render's Free Web Service tier, disk storage is ephemeral: visitor-submitted graves disappear on redeploy; the 15 seed graves automatically restore from a bundled snapshot (`seed_bundle.zip`).
 - **Replay expiry:** Browserbase recordings expire after about a week on the free tier, so the screenshots and local database are what's preserved long-term.
 
