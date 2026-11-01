@@ -198,23 +198,35 @@ Each burial is one `gen_ai.invoke_agent` trace with the grave slug as its conver
 
 #### Sentry GenAI Pipeline Latency Waterfall (5 Stages)
 
-Instrumenting the pipeline with OpenTelemetry GenAI spans reveals the end-to-end time distribution (median p50: ~33.9s):
+Below is the live Sentry pipeline telemetry rendered directly on the evaluation dashboard:
 
-1. **Archaeologist (`gen_ai.execute_tool` &middot; `query_cdx_lifeline`):** 2.4s p50 (7.1% of dig) — Rapid CDX API pagination in 5-year windows.
-2. **Exhumer (`gen_ai.execute_tool` &middot; `browserbase_exhume`):** 15.1s p50 (44.5% of dig) — Dominates execution time as headless Chromium navigates the Wayback Machine, follows redirects, renders DOM, and captures screenshots over CDP.
-3. **Coroner (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** 5.2s p50 (15.3% of dig) — Structured forensic cause-of-death classification.
-4. **Eulogist (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** 6.4s p50 (18.9% of dig) — Lyrical Día de los Muertos remembrance generation.
-5. **Fact-Checker (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** 4.8s p50 (14.2% of dig) — Claim extraction, cross-referencing against DOM text, and rewrite.
+![Sentry GenAI Pipeline Latency Waterfall](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_sentry_waterfall.png)
+*Figure 11: The live Sentry GenAI pipeline latency waterfall displaying median p50 and p95 timings across all 5 specialist agent stages.*
+
+Instrumenting the pipeline with OpenTelemetry GenAI semantic conventions (`gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.agent.name`, `gen_ai.tool.name`) reveals the end-to-end latency distribution (median p50: ~33.9s):
+
+1. **Archaeologist (`gen_ai.execute_tool` &middot; `query_cdx_lifeline`):** **2.4s p50** (p95: 5.1s, 7.1% of total dig) — Rapidly interrogates the Wayback CDX API in 5-year windows to establish the first and last recorded capture dates.
+2. **Exhumer (`gen_ai.execute_tool` &middot; `browserbase_exhume`):** **15.1s p50** (p95: 29.9s, 44.5% of total dig) — Dominates pipeline runtime as headless Chromium navigates Archive.org, follows redirects, renders dynamic client DOM, and captures screenshots over CDP.
+3. **Coroner (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **5.2s p50** (p95: 8.6s, 15.3% of total dig) — Ingests recovered text and outputs structured JSON classifying the cause of death.
+4. **Eulogist (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **6.4s p50** (p95: 10.2s, 18.9% of total dig) — Crafts the bilingual Día de los Muertos remembrance with inline evidence citations.
+5. **Fact-Checker (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** **4.8s p50** (p95: 7.9s, 14.2% of total dig) — Extracts atomic claims, checks them against the recovered text, and strikes unverified fabrications.
+
+---
 
 #### Archival Crawl Error Distribution (68 Attempts)
 
-Tracking span exceptions in Sentry diagnosed why automated digs fail:
-- **Wayback HTTP 429 Rate Limits:** 49 / 68 attempts (72.1%) — The Internet Archive's anti-abuse sentinels blocking sequential crawler bursts.
-- **Heavy Archival Timeouts:** 12 / 68 attempts (17.6%) — Historical snapshots exceeding the 30-second connection window.
-- **Clean HTTP 200 Extractions:** 7 / 68 attempts (10.3%) — Unblocked archival payloads.
-- **Browserbase Minute Quota (HTTP 402):** 3 attempts during benchmark runs.
+Scrolling down the observability report reveals why automated archaeological digs fail:
 
-**Conclusion:** 89.7% of archival failures were caused by upstream rate limits on `web.archive.org`, not pipeline crashes or LLM errors.
+![Archival Crawl Error Breakdown](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_sentry_errors.png)
+*Figure 12: Stacked archival error distribution diagnosing crawler bottlenecks: 49 Wayback 429 rate limits, 12 timeouts, and 7 unblocked 200s.*
+
+Tracking span exceptions in Sentry diagnosed the failure landscape across 68 sequential exhumation attempts:
+- **Wayback HTTP 429 Rate Limits:** **49 / 68 attempts (72.1%)** — The Internet Archive's anti-abuse sentinels actively throttling automated crawlers.
+- **Heavy Archival Timeouts:** **12 / 68 attempts (17.6%)** — Massive historical snapshots exceeding the 30-second connection window.
+- **Clean HTTP 200 Extractions:** **7 / 68 attempts (10.3%)** — Successful, unblocked archival recoveries.
+- **Browserbase Minute Quota (HTTP 402):** **3 attempts** during benchmark runs when concurrent browser minute caps were reached.
+
+**Conclusion:** **89.7% of crawler failures** were caused by upstream rate limits on `web.archive.org`, not pipeline crashes or LLM errors.
 
 What the traces showed:
 - **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries take ~2 to 3 seconds.
@@ -225,21 +237,16 @@ What the traces showed:
 
 ## What I Measured
 
-### Browserbase vs Plain HTTP
+### Browserbase vs Plain HTTP: Multi-Website Yield Comparison (15 Domains)
 
-Two runs tell different stories.
+Two extraction methods tell different stories across different historical eras:
 
-**Benchmark run (35 URLs, unpaired, spaced out):** Plain HTTP returned usable pages for 31 of 31 attempts (avg 965 chars, p50 3.3s, p95 33.8s). Browserbase returned usable pages for 22 of 27 (81.5%, avg 1,514 chars, p50 15.1s, p95 29.9s); 3 failures were free-plan limits (HTTP 402) and 2 were empty/block timeouts. In this run "usable" means a 200 response that isn't a block page, so it can still be tiny: the shortest Grooveshark capture was 77 characters.
-
-**Seed run (the 15 graves):** Only about 4 of 68 fetch attempts returned usable text. Browserbase minutes ran out early, so almost every attempt went through plain HTTP. When checking the attempt history directly from SQLite (`exhume_attempts`), 49 of the 68 attempts failed with HTTP 429 (`blocked_by_archive_rate_limit`), 12 timed out before response headers arrived, and 7 returned HTTP 200. Testing with `curl -I` from the host confirmed the Archive is active and serving 200s, but sequential automated requests quickly triggered the Wayback Machine's rate limit.
-
-What I take from this: Browserbase gave me screenshots, replays and more text per page when it worked, and plain HTTP was faster. Neither mattered as much as staying inside the Archive's rate limits and my free-plan quota.
-
-#### Multi-Website Yield Comparison (15 Tested Domains)
+![Multi-Website Extraction Yield Bar Chart](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_multi_site.png)
+*Figure 13: Live multi-target character yield comparison chart across 15 dead services, contrasting Browserbase CDP (Marigold) against Plain HTTP (Charcoal).*
 
 When comparing plain HTTP requests against Browserbase headless Chromium across 15 dead services, a sharp architectural divergence emerged:
 
-| Defunct Service | Era | Browserbase Chars | HTTP Chars | Verdict / Why |
+| Defunct Service | Era | Browserbase Chars | HTTP Chars | Verdict / Architectural Cause |
 |---|---|---:|---:|---|
 | **Adobe Flash Player** | 2018–2020 | **3,696 chars** (19.2s) | 0 chars (0.0s) | **Browserbase**: Requires DOM execution to parse product page |
 | **Yahoo Answers** | 2005–2007 | **3,220 chars** (17.1s) | 603 chars (17.7s) | **Browserbase (+433%)**: Dynamic QA forum content requires JS |
@@ -257,14 +264,16 @@ When comparing plain HTTP requests against Browserbase headless Chromium across 
 | **Tumblr** | post-2012 | 0 chars (0.0s) | **471 chars** (4.5s) | **Plain HTTP**: Minimal static redirect stub |
 | **Vine** | post-2012 | **234 chars** (19.4s) | 0 chars (0.0s) | **Browserbase**: Video grid placeholder |
 
-*Full interactive charts for all 15 sites, stage latencies, and error distributions are live on the benchmark dashboard: [https://graveyard-dead-software.onrender.com/benchmark](https://graveyard-dead-software.onrender.com/benchmark).*
-
-![Live Benchmark Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/vsuvek0u7uip2l0js9wy.png)
-*Figure 11: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
+What I take from this: Browserbase provided screenshots, replays, and **+56.9% more text on dynamic applications** (1,514 avg chars vs 965 chars), while plain HTTP was faster on early static pages (3.3s p50). Neither mattered as much as staying inside the Archive's rate limits.
 
 ---
 
 ### Did the Fact-Checker Help?
+
+Scrolling down to the Fact-Checking section shows how the model audits its own claims:
+
+![Gemma Fact-Checker Hallucination Audit & Archival Correlation](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_fact_checker.png)
+*Figure 14: Fact-Checker hallucination reduction metrics (47.6% net drop) and the correlation showing 81.0% of ungrounded claims trace back to thin archival evidence (<600 chars).*
 
 Across the 57 atomic factual claims extracted from the 10 graves that had generated claims:
 
@@ -275,13 +284,32 @@ Across the 57 atomic factual claims extracted from the 10 graves that had genera
 | **Unsupported after rewrite** | 11 (19.3%) |
 | **Net Hallucination Reduction** | **47.6% reduction in ungrounded claims** |
 
-Breaking down the 21 initial unsupported claims reveals an important insight: **13 of the 21 unsupported claims came from graves where 0 or near-0 characters of evidence were recovered** (Yahoo Answers had 6 unsupported claims, Vine had 5, and Google Reader had 2). When the archive yielded no text, Gemma drifted to memory to compose the eulogy; the fact-checker caught those ungrounded details and stripped them in the rewrite pass.
+Breaking down the 21 initial unsupported claims reveals a key insight: **17 of the 21 unsupported claims (81.0%) originated from graves where recovered text was thin (<600 characters)** (Yahoo Answers had 6 unsupported claims, Vine had 5, and Google Reader had 2). When the archive yielded no text, Gemma drifted to memory to compose the eulogy; the fact-checker caught those ungrounded details and stripped them in the rewrite pass.
 
 To check the checker, I hand-verified 25 of its verdicts against known tech history (`spot_check.csv`). I agreed with it on **19 of 25** (76.0% agreement). The fact-checker caught false acquisition dates and fabricated feature claims, but occasionally allowed flowery metaphors ("welcomed curious souls") that a strict human editor would flag. A model checking a model still benefits from human audit.
 
 ---
 
+### Case Study: GeoCities & The Archival Redirect Trap
+
+Scrolling further down into the case study section examines why certain sites fail on automated crawlers:
+
+![GeoCities 301 Redirect Forensic Breakdown](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_geocities_case_study.png)
+*Figure 15: The GeoCities forensic case study breaking down the Wayback 301 redirect and Flash container anomaly that triggers the yellow thin evidence guardrail badge.*
+
+Why did GeoCities trigger the yellow badge: `LIKELY CAUSE OF DEATH: UNKNOWN / ARCHIVAL EVIDENCE IS THIN (<600 CHARS RECOVERED)`?
+1. **The Wayback 301 Redirect Trap:** When querying `http://geocities.com/` on January 3, 2007, the Wayback Machine returned an HTTP 301 redirecting to `http://geocities.yahoo.com/`. Plain HTTP scrapers halt at the redirect wrapper, recovering 0 to 50 characters of boilerplate text.
+2. **Embedded Flash / Ruffle Containers:** The historical Yahoo GeoCities portal loaded its subscription tiers inside Flash objects (emulated today with Ruffle). Without Chromium JavaScript execution, curl sees empty `<div id="ruffle">` containers.
+3. **The Guardrail in Action:** Because recovered text fell below 600 characters, the cemetery stamped GeoCities with the yellow warning badge. Gemma verified 5 historical assertions and excised 0, refusing to hallucinate an ungrounded death narrative.
+
+---
+
 ### Cause of Death: Model vs My Labels
+
+Continuing to the bottom of the evaluation report reveals the Cemetery Ground Truth Matrix:
+
+![The Cemetery Ground Truth Matrix](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/benchmark_ground_truth.png)
+*Figure 16: The Cemetery Ground Truth Matrix tracking exhumed text depth, coroner causes of death, and verified claim counts across all 15 resting graves.*
 
 I labeled all 15 graves myself before looking at the model's verdicts:
 
@@ -305,7 +333,9 @@ I labeled all 15 graves myself before looking at the model's verdicts:
 
 The model answered 4 times and was right 4 times. It abstained 11 times and was never confidently wrong.
 
-The reason for the 11 abstentions is straightforward from the diagnosis above: Archive.org rate limits (49 HTTP 429 responses and 12 timeouts across the 68 attempts) prevented recovering text. The bottleneck in AI archaeology isn't the model's reasoning—it's access to the archive. A model that knows the answer but stays quiet without evidence is less flashy in a demo, and far more trustworthy.
+The reason for the 11 abstentions is straightforward: Archive.org rate limits (49 HTTP 429 responses and 12 timeouts across 68 attempts) prevented recovering text. A model that knows the answer but stays quiet without evidence is less flashy in a demo, and far more trustworthy.
+
+*The full interactive dashboard is live on Render: [https://graveyard-dead-software.onrender.com/benchmark](https://graveyard-dead-software.onrender.com/benchmark).*
 
 *(Grooveshark shut down as part of a copyright settlement. I filed that under `shut_down_by_owner`, which is a judgment call).*
 
