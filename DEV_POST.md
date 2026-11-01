@@ -177,31 +177,31 @@ Across 58 historical snapshot attempts (unpaired):
 
 | Path | Attempts | Usable % | Avg text | p50 latency | p95 latency | Failures / Limitations |
 |---|---:|---:|---:|---:|---:|---|
-| **Plain HTTP (`id_/`)** | 31 | 100.0% | 964 chars | 3.3s | 36.7s | 0 (Wayback 429s mitigated by pacing) |
-| **Browserbase (CDP)** | 27 | 81.5% | 1,513 chars | 15.1s | 30.2s | 5 (free-plan session limits & replay timeouts) |
+| **Plain HTTP (`id_/`)** | 31 | 100.0% | 965 chars | 3.3s | 33.8s | 0 (Wayback 429s mitigated by pacing) |
+| **Browserbase (CDP)** | 27 | 81.5% | 1,514 chars | 15.1s | 29.9s | 5 (3 HTTP 402 minutes limits, 2 empty/block) |
 
 ![Live Benchmark Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/vsuvek0u7uip2l0js9wy.png)
 *Figure 9: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
 
 From the benchmark data:
 - **Plain HTTP won on speed:** For early-web static pages (AltaVista, early GeoCities), raw HTML fetching finished in 3.3 seconds without browser startup overhead.
-- **Browserbase won on text depth:** By executing JavaScript on dynamic mid-2000s applications like Grooveshark and Pebble, Browserbase recovered **57% more text** (1,513 chars vs 964 chars) than plain scraping.
-- **Trade-off:** Browserbase's free tier has monthly session limits, which caused 5 timeout/quota failures during burst crawls. However, Browserbase provided full-page visual screenshots and video replays that plain HTTP cannot provide.
+- **Browserbase won on text depth:** By executing JavaScript on dynamic mid-2000s applications like Grooveshark, Browserbase recovered **57% more text** overall (1,514 chars vs 965 chars). On Grooveshark specifically, plain HTTP only recovered 77 and 370 characters, whereas Browserbase extracted 496 and 1,740 characters.
+- **Trade-off:** Browserbase's free tier has monthly session limits, which caused 3 HTTP 402 quota-limit failures and 2 empty timeouts during burst crawls. However, Browserbase provided full-page visual screenshots and video replays that plain HTTP cannot provide.
 
 ---
 
 ### Did the Fact-Checker Help?
 
-Across the 55 atomic factual claims extracted from initial Gemma eulogies:
+Across the 57 atomic factual claims extracted from initial Gemma eulogies:
 
 | Metric | Value |
 |---|---:|
-| **Factual claims extracted** | 55 |
-| **Unsupported before rewrite** | 21 (38.2%) |
-| **Unsupported after rewrite** | 11 (20.0%) |
+| **Factual claims extracted** | 57 |
+| **Unsupported before rewrite** | 21 (36.8%) |
+| **Unsupported after rewrite** | 11 (19.3%) |
 | **Net Hallucination Reduction** | **47.6% reduction in ungrounded claims** |
 
-To check the checker, I hand-verified 25 of its verdicts against known tech history (`spot_check.csv`). I agreed with it on **19 of 25** (76% agreement). The fact-checker caught false acquisition dates and fabricated feature claims, but occasionally allowed flowery metaphors ("welcomed curious souls") that a strict human editor would flag. A model checking a model still benefits from human audit.
+To check the checker, I hand-verified 25 of its verdicts against known tech history (`spot_check.csv`). I agreed with it on **19 of 25** (76.0% agreement). The fact-checker caught false acquisition dates and fabricated feature claims, but occasionally allowed flowery metaphors ("welcomed curious souls") that a strict human editor would flag. A model checking a model still benefits from human audit.
 
 ---
 
