@@ -10,3 +10,4 @@ static/screenshots/*.jpg
 scratch/
 seed_bundle_tmp/
 seed_bundle/screenshots/
+*.mp4
