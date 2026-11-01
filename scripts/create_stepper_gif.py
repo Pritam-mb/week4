@@ -100,3 +100,4 @@ first_frame.save(
 )
 
 print(f"Created animated GIF: {OUT_PATH} ({OUT_PATH.stat().st_size} bytes)")
+
