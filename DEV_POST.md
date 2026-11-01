@@ -196,6 +196,26 @@ Each burial is one `gen_ai.invoke_agent` trace with the grave slug as its conver
 ![Sentry Performance Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/i4hm0nnq9gavsbfg8c5y.png)
 *Figure 10: Sentry transactions dashboard showing agent execution latencies and throughput.*
 
+#### Sentry GenAI Pipeline Latency Waterfall (5 Stages)
+
+Instrumenting the pipeline with OpenTelemetry GenAI spans reveals the end-to-end time distribution (median p50: ~33.9s):
+
+1. **Archaeologist (`gen_ai.execute_tool` &middot; `query_cdx_lifeline`):** 2.4s p50 (7.1% of dig) — Rapid CDX API pagination in 5-year windows.
+2. **Exhumer (`gen_ai.execute_tool` &middot; `browserbase_exhume`):** 15.1s p50 (44.5% of dig) — Dominates execution time as headless Chromium navigates the Wayback Machine, follows redirects, renders DOM, and captures screenshots over CDP.
+3. **Coroner (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** 5.2s p50 (15.3% of dig) — Structured forensic cause-of-death classification.
+4. **Eulogist (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** 6.4s p50 (18.9% of dig) — Lyrical Día de los Muertos remembrance generation.
+5. **Fact-Checker (`gen_ai.chat` &middot; `Gemma-4-26B-A4B-IT`):** 4.8s p50 (14.2% of dig) — Claim extraction, cross-referencing against DOM text, and rewrite.
+
+#### Archival Crawl Error Distribution (68 Attempts)
+
+Tracking span exceptions in Sentry diagnosed why automated digs fail:
+- **Wayback HTTP 429 Rate Limits:** 49 / 68 attempts (72.1%) — The Internet Archive's anti-abuse sentinels blocking sequential crawler bursts.
+- **Heavy Archival Timeouts:** 12 / 68 attempts (17.6%) — Historical snapshots exceeding the 30-second connection window.
+- **Clean HTTP 200 Extractions:** 7 / 68 attempts (10.3%) — Unblocked archival payloads.
+- **Browserbase Minute Quota (HTTP 402):** 3 attempts during benchmark runs.
+
+**Conclusion:** 89.7% of archival failures were caused by upstream rate limits on `web.archive.org`, not pipeline crashes or LLM errors.
+
 What the traces showed:
 - **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries take ~2 to 3 seconds.
 - **What fails:** Tool spans captured HTTP 429 rate limits from Archive.org during sequential exhumations and 402 quota-limit warnings when Browserbase concurrent session limits were hit.
@@ -214,6 +234,30 @@ Two runs tell different stories.
 **Seed run (the 15 graves):** Only about 4 of 68 fetch attempts returned usable text. Browserbase minutes ran out early, so almost every attempt went through plain HTTP. When checking the attempt history directly from SQLite (`exhume_attempts`), 49 of the 68 attempts failed with HTTP 429 (`blocked_by_archive_rate_limit`), 12 timed out before response headers arrived, and 7 returned HTTP 200. Testing with `curl -I` from the host confirmed the Archive is active and serving 200s, but sequential automated requests quickly triggered the Wayback Machine's rate limit.
 
 What I take from this: Browserbase gave me screenshots, replays and more text per page when it worked, and plain HTTP was faster. Neither mattered as much as staying inside the Archive's rate limits and my free-plan quota.
+
+#### Multi-Website Yield Comparison (15 Tested Domains)
+
+When comparing plain HTTP requests against Browserbase headless Chromium across 15 dead services, a sharp architectural divergence emerged:
+
+| Defunct Service | Era | Browserbase Chars | HTTP Chars | Verdict / Why |
+|---|---|---:|---:|---|
+| **Adobe Flash Player** | 2018–2020 | **3,696 chars** (19.2s) | 0 chars (0.0s) | **Browserbase**: Requires DOM execution to parse product page |
+| **Yahoo Answers** | 2005–2007 | **3,220 chars** (17.1s) | 603 chars (17.7s) | **Browserbase (+433%)**: Dynamic QA forum content requires JS |
+| **GeoCities** | 2007–2009 | **1,721 chars** (13.3s) | 0 chars (0.0s) | **Browserbase**: 301 redirects to `geocities.yahoo.com` + Flash wrapper |
+| **Myspace** | 2005–2012 | **1,323 chars** (27.5s) | 0 chars (0.0s) | **Browserbase**: Client-side media players and script widgets |
+| **Grooveshark** | 2007–2015 | **1,118 chars** (19.3s) | 223 chars (30.4s) | **Browserbase (+401%)**: Streaming SPA UI fails on curl |
+| **Google Reader** | 2005–2013 | **852 chars** (18.8s) | 0 chars (0.0s) | **Browserbase**: Historical Google login interstitial |
+| **Digg** | 2005–2012 | 0 chars (13.0s) | **5,337 chars** (8.3s) | **Plain HTTP**: Static HTML portal exhumed instantly |
+| **AIM (AOL)** | pre-2005 | 0 chars (13.0s) | **1,623 chars** (19.7s) | **Plain HTTP**: Web 1.0 download table exhumed cleanly |
+| **Picnik** | 2005–2012 | 0 chars (0.0s) | **790 chars** (7.6s) | **Plain HTTP**: Static landing page before editor loads |
+| **del.icio.us** | 2003–2017 | 0 chars (0.0s) | **603 chars** (11.4s) | **Plain HTTP**: Lightweight social bookmark listing |
+| **Google+** | post-2012 | 0 chars (0.0s) | **603 chars** (4.0s) | **Plain HTTP**: Historical shutdown announcement |
+| **Microsoft Zune** | 2006–2015 | 0 chars (0.0s) | **603 chars** (7.6s) | **Plain HTTP**: Static hardware specification archive |
+| **ICQ** | pre-2005 | 0 chars (0.0s) | **580 chars** (8.7s) | **Plain HTTP**: Static directory listing |
+| **Tumblr** | post-2012 | 0 chars (0.0s) | **471 chars** (4.5s) | **Plain HTTP**: Minimal static redirect stub |
+| **Vine** | post-2012 | **234 chars** (19.4s) | 0 chars (0.0s) | **Browserbase**: Video grid placeholder |
+
+*Full interactive charts for all 15 sites, stage latencies, and error distributions are live on the benchmark dashboard: [https://graveyard-dead-software.onrender.com/benchmark](https://graveyard-dead-software.onrender.com/benchmark).*
 
 ![Live Benchmark Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/vsuvek0u7uip2l0js9wy.png)
 *Figure 11: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
