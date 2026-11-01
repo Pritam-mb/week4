@@ -1,15 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;400i;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root{
-  --paper:#EFE6D2;
-  --paper-2:#D9CFB8;
-  --ink:#14110D;
-  --ash:#6B6150;
-  --marigold:#E8920F;
-  --ember:#B84A18;
-  --sage:#566446;
-  --crimson:#8E2620;
-  --sage-tint:#CBD3B8;
+  --paper:#0b0a12;
+  --paper-2:#14121e;
+  --ink:#e8e6f0;
+  --ash:#9a97b5;
+  --marigold:#7b5cff;
+  --ember:#4a8bff;
+  --sage:#6b7a9c;
+  --crimson:#ff4d6d;
+  --sage-tint:#1e2230;
 
   --font-serif:'Fraunces', Georgia, "Times New Roman", serif;
   --font-mono:'IBM Plex Mono', ui-monospace, monospace;
@@ -29,11 +29,18 @@ html{scrollbar-width:thin; scrollbar-color:var(--marigold) var(--paper);}
 ::selection{background:var(--marigold); color:var(--ink);}
 
 body{
-  background:var(--paper);
+  background:
+    linear-gradient(180deg, rgba(11,10,18,0.45), rgba(11,10,18,0.55)),
+    url('/static/bg/Pixel_Graveyard_Under_Moonlight.png') center/cover fixed;
   color:var(--ink);
   font-family:var(--font-serif);
   line-height:1.5;
   font-size:16px;
+  position:relative;
+  min-height:100vh;
+}
+body::before{
+  display:none;
 }
 
 a{
@@ -150,29 +157,19 @@ ul, ol{margin:0 0 1rem 1.5rem;}
 
 /* Papel picado banner */
 .papel-picado{
-  height:44px;
+  height:56px;
   overflow:hidden;
   position:relative;
-  background:transparent;
+  background: var(--paper-2);
+  border-top:1px solid var(--marigold);
+  border-bottom:1px solid var(--ember);
 }
 .papel-picado .flag-strip{
-  display:flex;
-  gap:0;
-  position:absolute;
-  left:0;
-  top:0;
-  white-space:nowrap;
-  will-change:transform;
+  display:none;
 }
-.papel-picado svg{
-  display:block;
-  width:55px;
-  height:44px;
+.papel-picado::before{
+  display:none;
 }
-.papel-picado path.fill-m{fill:var(--marigold);}
-.papel-picado path.fill-e{fill:var(--ember);}
-.papel-picado path.fill-i{fill:var(--ink);}
-.papel-picado .cutout{fill:var(--paper);}
 
 /* Footer */
 .site-footer{
@@ -886,20 +883,12 @@ ul, ol{margin:0 0 1rem 1.5rem;}
 
 /* ---------- Petals ---------- */
 .petals-container{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:0;
-  overflow:hidden;
+  display:none;
 }
 .petal{
-  position:absolute;
-  top:-40px;
-  width:12px; height:12px;
-  opacity:0.5;
-  animation:fall linear infinite;
+  display:none;
 }
-.petal svg{width:100%; height:100%; fill:var(--marigold);}
+.petal svg{display:none;}
 @keyframes fall{
   to{transform:translateY(110vh) rotate(720deg);}
 }
@@ -1336,4 +1325,93 @@ ul, ol{margin:0 0 1rem 1.5rem;}
   font-size: 10px;
   color: var(--ash);
   white-space: nowrap;
+}
+
+/* Halloween decorative bats and pumpkins - removed on request, keep colors only */
+
+/* Benchmark page Halloween theme */
+.benchmark-page{
+  position: relative;
+}
+/* Background is now global on body, no duplicate overlay here */
+.benchmark-card{
+  background: rgba(20,18,30,0.75);
+  border:1px solid rgba(123,92,255,0.35);
+  backdrop-filter: blur(2px);
+}
+.benchmark-card-title{
+  color: var(--ink);
+  border-bottom-color: rgba(123,92,255,0.4);
+}
+.benchmark-bar{
+  border-color: rgba(123,92,255,0.5);
+  background: rgba(11,10,18,0.6);
+}
+.benchmark-bar-fill{
+  background: linear-gradient(90deg, var(--marigold), var(--ember));
+}
+.benchmark-bar-fill.ink-fill{
+  background: var(--ink);
+}
+.bar-track{
+  background: rgba(11,10,18,0.6);
+  border-color: rgba(123,92,255,0.4);
+}
+.bar-fill-bb{
+  background: var(--marigold);
+}
+.bar-fill-http{
+  background: var(--ember);
+}
+.legend-swatch.bb{background: var(--marigold);}
+.legend-swatch.http{background: var(--ember);}
+.legend-swatch.ember{background: var(--ember);}
+.chart-container{
+  background: rgba(20,18,30,0.75);
+  border-color: rgba(123,92,255,0.35);
+}
+.waterfall-card{
+  background: rgba(20,18,30,0.75);
+  border-color: rgba(123,92,255,0.35);
+}
+.benchmark-nav-strip{
+  background: rgba(20,18,30,0.7);
+  border-color: rgba(123,92,255,0.35);
+}
+
+/* Minecraft theme removed - keep Halloween dark colour theme, no white backgrounds */
+.benchmark-page .site-bar-row{
+  border-bottom: 1px dashed rgba(123,92,255,0.3);
+}
+.benchmark-page .benchmark-card{
+  background: rgba(20,18,30,0.75) !important;
+  border:1px solid rgba(123,92,255,0.35);
+  color: var(--ink);
+}
+.benchmark-page .bar-track{
+  background: rgba(11,10,18,0.6);
+  border-color: rgba(123,92,255,0.4);
+}
+.benchmark-page .bar-fill-bb{
+  background: var(--marigold);
+}
+.benchmark-page .bar-fill-http{
+  background: var(--ember);
+}
+.benchmark-page .benchmark-bar{
+  background: rgba(11,10,18,0.6);
+  border-color: rgba(123,92,255,0.5);
+}
+.benchmark-page .benchmark-bar-fill{
+  background: linear-gradient(90deg, var(--marigold), var(--ember));
+}
+.benchmark-page .benchmark-card-title{
+  color: var(--ink);
+  border-bottom-color: rgba(123,92,255,0.4);
+}
+.benchmark-page .site-title,
+.benchmark-page .benchmark-headline{
+  color: var(--ink);
+  text-shadow: none;
+  font-family: var(--font-serif);
 }
