@@ -31,6 +31,23 @@ So I built a cemetery.
 
 ---
 
+## TL;DR
+
+- **What:** Graveyard of Dead Software is an autonomous AI archaeology pipeline and digital cemetery. You submit a dead URL, and five specialist agents query the Wayback Machine, render the historical site via Browserbase, autopsy the cause of death, write a *Día de los Muertos* eulogy with Google's Gemma, and audit every factual assertion against recovered evidence before burial.
+- **The Ghost in the Machine:** Language models don't just hallucinate out of thin air—they faithfully summarize corrupted inputs. When the Wayback Machine rate-limited our scraper (HTTP 429), Gemma dutifully summarized the 603-character bot-block notice as Google Reader's authentic 2005 homepage. We engineered a 4-layer defense (signature blacklists, hash deduplication, 200 OK mandates, and politeness pacing) to stop poisoned exhumations.
+- **The Extraction Benchmark:** Across 58 historical snapshots, plain HTTP was 4.5x faster on static 1990s web pages (3.3s vs 15.1s median), but Browserbase CDP recovered **57% more text depth** (1,514 vs 965 chars) on dynamic mid-2000s applications like Grooveshark.
+- **The Fact-Checker:** Auditing 57 atomic claims across graves, our 1-pass corrective rewrite loop purged **47.6% of ungrounded hallucinations** (dropping unsupported claims from 36.8% to 19.3%). Human spot-checks agreed on 19 of 25 claims (76.0%).
+- **Forced Humility:** When Wayback rate-limited our sequential seed runs (49 of 68 attempts failed with 429), 11 graves recovered 0 text. Instead of fabricating corporate drama from memory, Gemma abstained with cause `unknown` and an honest `<600 chars recovered` warning.
+- **Everything is Open & Live:** Live on Render ([graveyard-dead-software.onrender.com](https://graveyard-dead-software.onrender.com/)), MIT licensed ([Pritam-mb/week4](https://github.com/Pritam-mb/week4)), with OpenTelemetry GenAI agent tracing in Sentry and recorded replays in Browserbase.
+
+### 3 Findings in 30 Seconds
+
+1. **Hallucination is poisoned input, not model rebellion.** The model didn't invent "automated sentinels guarding blocked requests" from thin air. It summarized an Archive.org 429 rate-limit notice that returned with HTTP 200. Bad scraping poisons AI archaeology.
+2. **Thin evidence requires forced humility.** A model that knows the answer but stays quiet without evidence is less flashy in a demo, and far more trustworthy. 11 of 15 graves abstained with cause `unknown` because the scraper retrieved zero clean characters.
+3. **Reproducible benchmarks need unpaired transparency.** Plain HTTP is blazing fast for early HTML, but modern and mid-2000s web apps need headless Chromium hydration over CDP to expose their DOM text.
+
+---
+
 ## Demo
 
 - **Live site (Render):** [https://graveyard-dead-software.onrender.com/](https://graveyard-dead-software.onrender.com/) *(Free tier: if the container is sleeping, the first load takes ~50 seconds to wake up. Verified fully operational in private windows).*
@@ -267,6 +284,20 @@ This is a cemetery for software that died because someone else controlled it. Go
 I called Gemma through a hosted API because it was convenient for a one-week build. But the weights are open, so the model that writes these eulogies can be downloaded and run on personal hardware. The pipeline has an Ollama provider setting (`LLM_PROVIDER=ollama`), but I haven't tested it end to end yet.
 
 A memorial whose voice can be switched off by a third party isn't really a memorial. Open weights, open archives (the Internet Archive), and open code are what let this place outlive its builder.
+
+---
+
+## My Agent Session
+
+I built this project pairing with Google Antigravity (Advanced Agentic AI pair programming) under strict operating rules: never fabricate a metric or claim, preserve documentation integrity, verify all assertions against raw database rows, and write reproducible audit tools.
+
+Three moments from the agent pairing session worth opening:
+
+1. **Uncovering the Bot-Block Hallucination Trap:** Early in development, our test run generated a bizarre eulogy for Google Reader about "automated sentinels guarding blocked requests." While tests passed and Sentry spans were green, the agent inspected the raw SQLite database row and caught the root cause: Archive.org's 603-character rate-limit HTML page had slipped through as authentic content. We immediately threw out our first benchmark numbers and implemented the 4-layer defense.
+2. **Refusing to Falsify the Seed Graves:** When our audit script (`scripts/proof_pack.py`) inspected all 68 fetch attempts across the 15 cemetery graves, it revealed that 49 attempts had hit Archive.org 429 rate limits, leaving 11 graves with 0 recovered characters. Rather than smoothing over the numbers or claiming 100% extraction success, the agent insisted on reporting the 11 abstentions with full forensic honesty.
+3. **Engineering the Stepper & Replay Demonstrations:** To prove end-to-end functionality without loading heavy dependencies, the agent converted our Browserbase CDP session recording into an optimized animated GIF (`live_screen_recording.gif`) and generated a retro terminal stepper (`live_dig_stepper.gif`) illustrating the five specialists in action.
+
+**AI Disclosure:** Developed using Google Antigravity (Advanced Agentic Coding) for system architecture, pipeline orchestration, and empirical benchmarking. All data, traces, and code were verified against real host environments and Render deployments.
 
 ---
 
