@@ -40,12 +40,12 @@ So I built a cemetery.
 
 ### Anatomy of a Memorial Page
 
-Every dead project exhumed by the pipeline receives a structured memorial page:
+Every dead project exhumed by the pipeline receives a permanent memorial page:
 
 ![The Memorial Page](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/yis7bg5hoxsn2g0mk33n.png)
 *Figure 2: A memorial page showing the capture lifeline, primary archive sources, likely cause of death, verified claims, and community marigold counter.*
 
-Here is what the memorial screen surfaces:
+The memorial screen surfaces:
 - **Lifeline Sparkline (Top Right):** An inline SVG chart generated from Wayback's CDX API capture counts per year, showing the domain's historical activity and when it went flatline.
 - **Primary Sources (Sidebar):** Direct outbound links to the **First Capture** in Archive.org, the **Last Archived Capture**, and the **Session Replay** recording in Browserbase.
 - **Likely Cause of Death & Evidence Warning:** Displays the coroner's verdict (`shut_down_by_owner`, `acquired_then_shut_down`, `abandoned`, or `unknown`). When Wayback returns minimal text, an **"Archival evidence is thin (<600 chars recovered)"** indicator warns visitors that the archive was sparse.
@@ -65,11 +65,10 @@ You can test exhuming a dead project live directly on the site:
 1. Open the cemetery at [https://graveyard-dead-software.onrender.com/](https://graveyard-dead-software.onrender.com/).
 2. On the right sidebar, locate the **"Know a project that died?"** box.
 3. Enter any dead or defunct website (e.g. `https://flappybird.com`, `https://orkut.com`, or `https://path.com`) and click **"Bury a Project"**.
-4. A live terminal progress modal will appear, executing the five-stage pipeline in real time:
+4. The live terminal progress modal executes the five-stage pipeline in real time:
 
-![Live Burial Screen Recording](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_screen_recording.gif)
-*Figure 3: Live screen recording of an exhumation in progress, showing the five-stage tracker stepping through Archaeologist, Exhumer, Coroner, Eulogist, and Fact-Checker before automatically redirecting to the completed grave.*
-
+![Live Terminal Digging Stepper](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_dig_stepper.gif)
+*Figure 3: Five-stage terminal exhumation stepping through Archaeologist, Exhumer, Coroner, Eulogist, and Fact-Checker before automatically redirecting to the completed grave.*
 
 ---
 
@@ -94,16 +93,19 @@ It queries the Internet Archive's CDX API to learn when a site was born, when it
 
 From the monthly capture counts it draws an inline SVG lifeline on the grave page and picks five snapshots: birth, peak, decline, last seen alive (the final 200 OK), and post-death (the first redirect or 404).
 
-### 2. The Exhumer brings back the pixels
+### 2. The Exhumer brings back the pixels with Browserbase
 For each snapshot, the Exhumer opens a **Browserbase** cloud browser over Chrome DevTools Protocol (CDP), loads the archived page, takes a screenshot, and extracts the visible text. Every session is recorded and can be replayed.
 
 If Browserbase hits a session cap or times out, it falls back to fetching the raw archived HTML (Wayback's `id_/` mode). Every attempt is logged with its method, status, size, and timing, and every recovered page becomes numbered evidence: `E001`, `E002`, and so on. Later stages are only allowed to use facts from that evidence.
 
 ![Browserbase Session Replay Inspector](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_session_replay.png)
-*Figure 4: Browserbase session inspector showing session `d4521703-fcd3-4218-bf0b-fa558e9a89bb` rendering historical Archive.org pages over CDP.*
+*Figure 4: Browserbase session inspector showing session `d4521703-fcd3-4218-bf0b-fa558e9a89bb` rendering historical Archive.org pages over CDP in us-west-2.*
+
+![Browserbase Session Replay in Action](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_screen_recording.gif)
+*Figure 5: Live screen recording of a Browserbase session replay playing back the historical archive snapshot over CDP.*
 
 ![Browserbase Sessions Log](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/browserbase_sessions_list.png)
-*Figure 5: Browserbase completed sessions log tracking historical exhumations.*
+*Figure 6: Browserbase completed sessions log tracking historical exhumations.*
 
 ### 3. The Coroner rules on the cause of death
 Was it shut down by its owner, bought and then killed, abandoned, or taken over?
@@ -118,10 +120,10 @@ Gemma writes a 12-word epitaph and a 150–220-word eulogy, and every factual se
 When less than 600 characters were recovered, the grave shows **"Archival evidence is thin (<600 chars recovered)"**, and Gemma is told to write a short, honest remembrance instead of filling the gaps from memory.
 
 ![Thin evidence notice on Flash Player's grave](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/flash_player_grave_ui.png)
-*Figure 6: Flash Player's grave. The archive returned minimal text, and the eulogy honestly says so.*
+*Figure 7: Flash Player's grave. The archive returned minimal text, and the eulogy honestly says so.*
 
 ![Grooveshark grave with rich evidence](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/grooveshark_grave_ui.png)
-*Figure 7: A grave with rich evidence (Grooveshark): note the evidence list, the [E001] citations in the eulogy, and the verified claim badges.*
+*Figure 8: A grave with rich evidence (Grooveshark): note the evidence list, the [E001] citations in the eulogy, and the verified claim badges.*
 
 ### 5. The Fact-checker audits the eulogy
 Language models love inventing acquisition dates and corporate drama. So the last stage breaks the eulogy into individual claims, checks each against the evidence, and, if any is unsupported, makes Gemma rewrite it once to remove or soften those claims. The grave page shows every claim marked OK or FAIL.
@@ -172,10 +174,10 @@ I didn't try to get around the block. The Internet Archive is a free public libr
 Each burial is one `gen_ai.invoke_agent` trace with the grave slug as its conversation ID. Every Gemma call is a `gen_ai.chat` span with token counts, and every CDX query, Browserbase session, and HTTP fetch is a `gen_ai.execute_tool` span.
 
 ![Sentry Distributed Trace Waterfall](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/gn9swknh7gpcs3igzqfm.png)
-*Figure 8: Sentry distributed trace waterfall showing gen_ai.invoke_agent branching into chat and tool spans.*
+*Figure 9: Sentry distributed trace waterfall showing gen_ai.invoke_agent branching into chat and tool spans.*
 
 ![Sentry Performance Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/i4hm0nnq9gavsbfg8c5y.png)
-*Figure 9: Sentry transactions dashboard showing agent execution latencies and throughput.*
+*Figure 10: Sentry transactions dashboard showing agent execution latencies and throughput.*
 
 What the traces showed:
 - **Where the time goes:** The slowest single stage is the Exhumer when driving Browserbase sessions over CDP (~15 to 19 seconds for full DOM rendering and screenshot capture), followed by Gemma's generation calls (~10 to 14 seconds). The Archaeologist CDX queries take ~2 to 3 seconds.
@@ -197,7 +199,7 @@ Two runs tell different stories.
 What I take from this: Browserbase gave me screenshots, replays and more text per page when it worked, and plain HTTP was faster. Neither mattered as much as staying inside the Archive's rate limits and my free-plan quota.
 
 ![Live Benchmark Dashboard](https://dev-to-uploads.s3.us-east-2.amazonaws.com/uploads/articles/vsuvek0u7uip2l0js9wy.png)
-*Figure 10: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
+*Figure 11: Live benchmark dashboard on Render comparing extraction yield, latency percentiles, and era breakdown.*
 
 ---
 
