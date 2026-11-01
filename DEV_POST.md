@@ -43,6 +43,9 @@ So I built a cemetery.
 
 Try it yourself: type a dead project into the **"Know a project that died?"** box on the home page and watch the five stages tick by:
 
+![Live Exhumation Stepper](https://raw.githubusercontent.com/Pritam-mb/week4/main/static/screenshots/live_dig_stepper.gif)
+*Figure 3: Live five-stage exhumation terminal stepping through Archaeologist, Exhumer, Coroner, Eulogist, and Fact-Checker.*
+
 ```text
 DIGGING
   [✓] ARCHAEOLOGIST   Establishing capture lifeline & snapshot dates
